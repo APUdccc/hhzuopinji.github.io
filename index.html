@@ -3,84 +3,1617 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>首页 - 个人作品集</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="nav.css">
+    <title>创意设计师作品集</title>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        :root {
+            --dark-bg: #0a0a14; /* 更深的底色 */
+            --darker-bg: #070710; /* 最深的背景色 */
+            --card-bg: #1a1a2e;        /* 卡片背景色 */
+            --gradient-gold: linear-gradient(135deg, #c6a355, #e9d5a9); /* 淡金渐变 */
+            --gradient-gold-2: linear-gradient(135deg, #b89649, #d4b978); /* 深金渐变 */
+            --primary-gold: #c6a355; /* 主金色 */
+            --secondary-gold: #d4b978; /* 次要金色 */
+            --text-gold: #e9d5a9; /* 金色文字 */
+            --text-light-gold: rgba(233, 213, 169, 0.7); /* 淡金色文字 */
+            --border-gold: rgba(198, 163, 85, 0.3); /* 金色边框 */
+            --shadow-color: rgba(0, 0, 0, 0.5); /* 深色阴影 */
+            --accent-color: #4ECDC4;
+            --light-text: #636E72;
+            --background: #FFFFFF;
+            --gradient-3: linear-gradient(135deg, #6366F1, #A78BFA);
+            --shadow-sm: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 8px 15px rgba(0, 0, 0, 0.1);
+            --section-bg: #12121f;     /* 区块背景色 */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: var(--text-gold);
+            line-height: 1.6;
+            background-color: var(--section-bg);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* 导航栏样式 */
+        .main-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: black; /* 修改为黑色背景 */
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            box-shadow: 0 4px 30px rgba(198, 163, 85, 0.2);
+            border-bottom: 1px solid var(--border-gold);
+        }
+        
+        /* 其他导航栏相关样式保持不变 */
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 2;
+        }
+
+        .nav-brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--gradient-gold);
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+        }
+
+        .nav-brand:hover {
+            transform: translateY(-1px);
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-gold);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            box-shadow: 0 0 10px rgba(198, 163, 85, 0.2);
+        }
+        
+        /* 添加首页链接的特殊样式 */
+        .nav-links a.active[href="#"] {
+            -webkit-text-fill-color: black; /* 将首页链接文字颜色设为黑色 */
+        }
+
+        /* 兼容性处理 */
+        @supports not (backdrop-filter: blur(10px)) {
+            .main-nav {
+                background: rgba(245, 245, 245, 0.95); /* 降级方案 */
+            }
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .main-nav {
+                background: linear-gradient(
+                    to right,
+                    rgba(47, 37, 88, 0.98),
+                    rgba(79, 61, 151, 0.98)
+                );
+            }
+        }
+
+        /* Hero区域样式 */
+        .hero {
+            position: relative;
+            padding-top: 60px;
+            min-height: 45vh;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            background: var(--section-bg);
+        }
+
+        /* 添加几何背景装饰 */
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(45deg, rgba(79, 61, 151, 0.1) 25%, transparent 25%) -50px 0,
+                linear-gradient(-45deg, rgba(79, 61, 151, 0.1) 25%, transparent 25%) -50px 0;
+            background-size: 100px 100px;
+            z-index: 1;
+        }
+
+        /* 添加动态线条 */
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(90deg, transparent 0%, rgba(99, 102, 241, 0.1) 50%, transparent 100%),
+                linear-gradient(180deg, transparent 0%, rgba(139, 92, 246, 0.1) 50%, transparent 100%);
+            background-size: 200% 200%;
+            animation: gradientMove 15s ease infinite;
+            z-index: 2;
+        }
+
+        /* 添加浮动几何形状 */
+        .geometric-shapes {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 3;
+            overflow: hidden;
+        }
+
+        .shape {
+            position: absolute;
+            opacity: 0.1;
+        }
+
+        .shape-1 {
+            top: 20%;
+            left: 10%;
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--primary-gold);
+            transform: rotate(45deg);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .shape-2 {
+            top: 60%;
+            right: 15%;
+            width: 40px;
+            height: 40px;
+            background: var(--secondary-gold);
+            border-radius: 50%;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        .shape-3 {
+            bottom: 20%;
+            left: 20%;
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--primary-gold);
+            border-radius: 50%;
+            animation: float 7s ease-in-out infinite;
+        }
+
+        /* 确保内容在装饰层之上 */
+        .hero-content {
+            position: relative;
+            z-index: 4;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+            padding: 1.5rem 0;
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        .hero-text {
+            padding-left: 2rem;
+        }
+
+        .hero-text h1 {
+            font-size: 3.5rem;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .hero-text .subtitle {
+            font-size: 1.4rem;
+            color: var(--text-light-gold);
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        .hero-text p {
+            font-size: 1.2rem;
+            color: var(--text-light-gold);
+            text-align: left;
+        }
+
+        /* 简历预览部分样式 */
+        .resume-preview {
+            padding: 6rem 0;
+            background: var(--section-bg);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            color: var(--text-gold);
+            margin-bottom: 1rem;
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-subtitle {
+            color: var(--text-light-gold);
+            font-size: 1.2rem;
+        }
+
+        .resume-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+        }
+
+        /* 个人简介卡片 */
+        .profile-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-gold);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 2rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            /* 移除所有动画效果 */
+            transform: none;
+            transition: none;
+        }
+
+        .profile-image {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 3px solid var(--primary-gold);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .profile-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-gold);
+        }
+
+        .profile-title {
+            color: var(--text-light-gold);
+            margin-bottom: 1rem;
+        }
+
+        .bio-text {
+            color: var(--text-light-gold);
+            background: var(--card-bg);
+            padding: 2rem;
+            border: 1px solid var(--border-gold);
+            border-radius: 15px;
+        }
+
+        .bio-text p {
+            margin-bottom: 1rem;
+        }
+
+        /* 技能展示 */
+        .skills-showcase {
+            background: var(--card-bg);
+            border: 1px solid var(--border-gold);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            /* 移除动画效果 */
+            transform: none;
+            transition: none;
+        }
+
+        .skills-category {
+            margin-bottom: 2rem;
+        }
+
+        .skills-category h4 {
+            margin-bottom: 1.5rem;
+            color: var(--text-gold);
+            font-size: 1.2rem;
+        }
+
+        .skill-item {
+            padding: 0.5rem 0;
+        }
+
+        .skill-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+
+        .skill-name {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-weight: 500;
+        }
+
+        .skill-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--gradient-gold);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--dark-bg);
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .skill-level {
+            color: var(--primary-gold);
+            font-weight: 600;
+        }
+
+        .skill-bar {
+            height: 8px;
+            background: rgba(198, 163, 85, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .skill-progress {
+            height: 100%;
+            background: var(--gradient-gold);
+            border-radius: 4px;
+            transition: none;
+        }
+
+        .skills-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .skills-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .skill-tag {
+            background: var(--gradient-gold);
+            color: var(--dark-bg);
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            font-size: 0.95rem;
+            /* 移除动画效果 */
+            transform: none;
+            transition: none;
+        }
+
+        .tag-icon {
+            font-size: 1.1rem;
+        }
+
+        .skill-tag:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 992px) {
+            .resume-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: left;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .profile-card {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                min-height: 40vh;
+            }
+
+            .hero-content {
+                grid-template-columns: 1fr;
+                text-align: left;
+                padding: 1rem;
+            }
+
+            .hero-text {
+                padding-left: 1rem;
+            }
+
+            .hero-text h1 {
+                font-size: 2.8rem;
+            }
+
+            .hero-text .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .hero-text p {
+                font-size: 1rem;
+            }
+
+            .skill-icon {
+                width: 24px;
+                height: 24px;
+                font-size: 0.7rem;
+            }
+
+            .skills-tags {
+                gap: 0.8rem;
+            }
+            
+            .skill-tag {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 作品展示样式 */
+        .portfolio-preview {
+            padding: 6rem 0;
+            background: var(--section-bg);
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .portfolio-item {
+            background: var(--card-bg);
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transition: transform 0.3s ease;
+            border: 1px solid var(--border-gold);
+        }
+
+        .portfolio-item:hover {
+            transform: translateY(-10px);
+        }
+
+        .portfolio-image {
+            position: relative;
+            height: 250px;
+            overflow: hidden;
+        }
+
+        .portfolio-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .portfolio-item:hover .portfolio-image img {
+            transform: scale(1.1);
+        }
+
+        .portfolio-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .portfolio-item:hover .portfolio-overlay {
+            opacity: 1;
+        }
+
+        .portfolio-overlay .category {
+            color: var(--dark-bg);
+            background: var(--gradient-gold);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            margin-bottom: 1rem;
+        }
+
+        .portfolio-overlay .view-project {
+            color: var(--dark-bg);
+            text-decoration: none;
+            border: 2px solid var(--primary-gold);
+            padding: 0.5rem 1.5rem;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .portfolio-overlay .view-project:hover {
+            background: var(--primary-gold);
+            color: var(--dark-bg);
+        }
+
+        .portfolio-info {
+            padding: 1.5rem;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-gold);
+        }
+
+        .portfolio-info h3 {
+            margin-bottom: 0.5rem;
+            color: var(--text-gold);
+        }
+
+        .portfolio-info p {
+            color: var(--text-light-gold);
+        }
+
+        /* 客户评价样式 */
+        .testimonials {
+            padding: 6rem 0;
+            background: var(--section-bg);
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .testimonial-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            transition: transform 0.3s ease;
+            border: 1px solid var(--border-gold);
+        }
+
+        .testimonial-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .testimonial-content {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .quote-icon {
+            font-size: 4rem;
+            color: var(--primary-gold);
+            opacity: 0.1;
+            position: absolute;
+            top: -2rem;
+            left: -1rem;
+        }
+
+        .testimonial-content p {
+            position: relative;
+            font-style: italic;
+            color: var(--text-gold);
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .testimonial-author img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .author-info h4 {
+            margin: 0;
+            color: var(--text-gold);
+        }
+
+        .author-info p {
+            margin: 0;
+            color: var(--text-light-gold);
+            font-size: 0.9rem;
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .portfolio-grid,
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 工作经历时间轴样式 */
+        .experience {
+            padding: 6rem 0;
+            background: var(--section-bg);
+        }
+
+        .timeline {
+            position: relative;
+            max-width: 800px;
+            margin: 3rem auto 0;
+            padding: 2rem 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2px;
+            height: 100%;
+            background: var(--gradient-gold);
+            opacity: 0.3;
+        }
+
+        .timeline-item {
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--gradient-gold);
+            border: 2px solid var(--dark-bg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .timeline-content {
+            width: calc(50% - 50px);
+            padding: 2rem;
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            position: relative;
+            border: 1px solid var(--border-gold);
+        }
+
+        .timeline-item:nth-child(odd) .timeline-content {
+            margin-left: auto;
+        }
+
+        .timeline-company {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .timeline-company img {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        .company-info h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .period {
+            color: var(--text-light-gold);
+            font-size: 0.9rem;
+        }
+
+        .achievement-list {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        .achievement-list li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light-gold);
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .tags span {
+            padding: 0.3rem 0.8rem;
+            background: var(--gradient-gold);
+            color: var(--dark-bg);
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        /* 联系方式样式 */
+        .contact {
+            padding: 6rem 0;
+            background: var(--section-bg);
+        }
+
+        .contact-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            margin-top: 3rem;
+        }
+
+        .contact-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            border: 1px solid var(--border-gold);
+        }
+
+        .contact-methods {
+            display: grid;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .contact-method {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .contact-method .icon {
+            width: 50px;
+            height: 50px;
+            background: var(--gradient-gold);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: var(--dark-bg);
+        }
+
+        .contact-method .info h4 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .contact-method .info p {
+            margin: 0;
+            color: var(--text-light-gold);
+        }
+
+        .social-links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .social-link {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--gradient-gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+
+        .social-link:hover {
+            transform: translateY(-3px);
+        }
+
+        .social-link img {
+            width: 20px;
+            height: 20px;
+            filter: brightness(0) invert(1);
+        }
+
+        .contact-form form {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            border: 1px solid var(--border-gold);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-gold);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid var(--border-gold);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            background: rgba(198, 163, 85, 0.05);
+            color: var(--text-gold);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary-gold);
+            background: rgba(198, 163, 85, 0.08);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1rem;
+            background: var(--gradient-gold);
+            color: var(--dark-bg);
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            font-weight: 600;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 992px) {
+            .contact-container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .timeline::before {
+                left: 0;
+            }
+
+            .timeline-dot {
+                left: 0;
+            }
+
+            .timeline-content {
+                width: calc(100% - 30px);
+                margin-left: 30px !important;
+            }
+        }
+
+        /* 所有section标题的渐变色样式 */
+        .section-header .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block; /* 确保渐变效果正确显示 */
+            position: relative;
+        }
+
+        /* 可以为不同部分设置不同的渐变色 */
+        .resume-preview .section-title {
+            background: linear-gradient(135deg, #6C63FF, #4ECDC4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .portfolio-preview .section-title {
+            background: linear-gradient(135deg, #FF6B6B, #FED330);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .experience .section-title {
+            background: linear-gradient(135deg, #4ECDC4, #45B649);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .testimonials .section-title {
+            background: linear-gradient(135deg, #FF6B6B, #556270);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .contact .section-title {
+            background: linear-gradient(135deg, #6C63FF, #FF6B6B);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 为标题添加悬停效果 */
+        .section-header .section-title:hover {
+            transform: translateY(-2px);
+            transition: transform 0.3s ease;
+        }
+
+        /* 确保在移动端也能正确显示 */
+        @media (max-width: 768px) {
+            .section-header .section-title {
+                font-size: 2rem;
+            }
+        }
+
+        /* 标题渐变色统一 */
+        .section-header .section-title {
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 技能进度条渐变 */
+        .skill-progress {
+            background: var(--gradient-gold);
+        }
+
+        /* 技能图标背景 */
+        .skill-icon {
+            background: var(--gradient-gold);
+        }
+
+        /* 专业技能标签渐变 */
+        .skill-tag {
+            background: var(--gradient-gold);
+        }
+
+        /* 导航栏激活状态 */
+        .nav-links a:hover,
+        .nav-links a.active {
+            background: var(--gradient-gold);
+        }
+
+        /* 作品卡片悬停效果 */
+        .portfolio-overlay .category {
+            background: var(--gradient-gold);
+        }
+
+        /* 时间轴点的颜色 */
+        .timeline-dot {
+            background: var(--gradient-gold);
+        }
+
+        /* 联系方式图标背景 */
+        .contact-method .icon {
+            background: var(--gradient-gold);
+        }
+
+        /* 提交按钮渐变 */
+        .submit-btn {
+            background: var(--gradient-gold);
+        }
+
+        /* 社交媒体链接背景 */
+        .social-link {
+            background: var(--gradient-gold);
+        }
+
+        /* Hero区域文字渐变 */
+        .hero-text h1 {
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 确保所有渐变色过渡效果平滑 */
+        .skill-tag:hover,
+        .submit-btn:hover,
+        .social-link:hover {
+            background: var(--gradient-gold-2);
+            transform: translateY(-3px);
+        }
+
+        /* 添加渐变色阴影效果 */
+        .skill-tag:hover,
+        .portfolio-item:hover,
+        .timeline-content:hover {
+            box-shadow: 0 8px 30px var(--shadow-color);
+        }
+
+        /* 移除所有流动/光效动画 */
+        .hero::after,
+        .skill-icon::after,
+        .contact-method .icon::after,
+        .submit-btn::after,
+        .skill-tag::after,
+        .main-nav::before {
+            display: none; /* 移除所有流动动画效果 */
+        }
+
+        /* 添加分割线样式 */
+        .section-divider {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(
+                to right,
+                transparent,
+                var(--border-gold),
+                transparent
+            );
+            margin: 0 auto;
+            opacity: 0.3;
+        }
+
+        /* 调整每个区块的样式 */
+        .resume-preview,
+        .portfolio-preview,
+        .experience,
+        .testimonials,
+        .contact {
+            position: relative;
+            padding: 6rem 0;
+        }
+
+        /* 在每个section的底部添加分割线 */
+        .resume-preview::after,
+        .portfolio-preview::after,
+        .experience::after,
+        .testimonials::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(
+                to right,
+                transparent,
+                var(--border-gold),
+                transparent
+            );
+            opacity: 0.3;
+        }
+    </style>
 </head>
 <body>
     <!-- 导航栏 -->
     <nav class="main-nav">
-        <div class="nav-brand">Your Brand</div>
-        <div class="nav-links">
-            <a href="index.html" class="active">首页</a>
-            <a href="about.html">关于我</a>
-            <a href="skills.html">技能</a>
-            <a href="portfolio.html">作品集</a>
-            <a href="experience.html">经历</a>
-            <a href="education.html">教育</a>
-            <a href="contact.html">联系我</a>
+        <div class="nav-container">
+            <div class="nav-brand">UpDate</div>
+            <div class="nav-links">
+                <a href="#" class="active">首页</a>
+                <a href="#">关于</a>
+                <a href="#">作品</a>
+                <a href="#">技能</a>
+                <a href="#">联系</a>
+            </div>
         </div>
     </nav>
 
-    <!-- 封面部分 -->
-    <header class="hero">
-        <div class="hero-content">
-            <img src="avatar.jpg" alt="个人头像" class="avatar">
-            <h1 class="animate-text">你的名字</h1>
-            <p class="tagline">创意设计师 / UI设计师 / 自由撰稿人</p>
-            <div class="cta-buttons">
-                <a href="portfolio.html" class="cta-button primary">查看作品</a>
-                <a href="contact.html" class="cta-button secondary">联系我</a>
-            </div>
+    <!-- Hero区域 -->
+    <section class="hero">
+        <div class="geometric-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
         </div>
-    </header>
-
-    <!-- 简介部分 -->
-    <section class="intro">
         <div class="container">
-            <h2>关于我</h2>
-            <p>富有创造力的设计师，专注于用户体验与视觉设计</p>
-            <div class="skills-container">
-                <div class="skill-tag">UI设计</div>
-                <div class="skill-tag">平面设计</div>
-                <div class="skill-tag">品牌设计</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 技能展示部分 -->
-    <section class="skills">
-        <div class="container">
-            <h2>专业技能</h2>
-            <div class="skill-grid">
-                <div class="skill-item">
-                    <div class="skill-name">Photoshop</div>
-                    <div class="skill-bar" data-level="90"></div>
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>创意设计师</h1>
+                    <p class="subtitle">用设计诠释创意，用创意改变世界</p>
+                    <p>UI设计 / 品牌设计 / 交互设计</p>
                 </div>
-                <!-- 更多技能项... -->
             </div>
         </div>
     </section>
+    <div class="section-divider"></div>
 
-    <!-- 作品展示部分 -->
-    <section class="portfolio">
+    <!-- 简历预览部分 -->
+    <section class="resume-preview">
         <div class="container">
-            <h2>精选作品</h2>
-            <div class="portfolio-grid">
-                <div class="portfolio-item">
-                    <img src="project1.jpg" alt="项目1">
-                    <div class="portfolio-info">
-                        <h3>项目名称</h3>
-                        <p>项目描述</p>
-                        <div class="tags">
-                            <span>UI设计</span>
-                            <span>Web开发</span>
+            <div class="section-header">
+                <h2 class="section-title">About Me</h2>
+                <p class="section-subtitle">专注用户体验与视觉设计</p>
+            </div>
+            
+            <div class="resume-grid">
+                <!-- 个人简介 -->
+                <div class="resume-intro">
+                    <div class="profile-card">
+                        <div class="profile-image">
+                            <img src="https://picsum.photos/120/120?random=1" alt="个人照片">
+                        </div>
+                        <div class="profile-info">
+                            <h3>王小明</h3>
+                            <p class="profile-title">高级UI设计师 / 视觉设计师</p>
+                            <div class="profile-details">
+                                <div class="detail-item">
+                                    <span>📍 上海</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span>💼 5年工作经验</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bio-text">
+                        <p>我是一名充满激情的设计师，专注于创造优秀的用户体验和视觉设计。在过去5年中，我参与了多个大型项目的设计工作，涵盖移动应用、企业官网、品牌设计等领域。</p>
+                        <p>曾就职于阿里巴巴、腾讯等知名企业，负责核心产品的用户界面设计。</p>
+                    </div>
+                </div>
+
+                <!-- 技能展示 -->
+                <div class="skills-showcase" data-aos="fade-left">
+                    <div class="skills-category">
+                        <h4>设计工具</h4>
+                        <div class="skills-grid">
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">Ps</span>
+                                        <span>Photoshop</span>
+                                    </div>
+                                    <span class="skill-level">90%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 90%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">Cd</span>
+                                        <span>CorelDraw</span>
+                                    </div>
+                                    <span class="skill-level">90%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 90%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">Bl</span>
+                                        <span>Blender</span>
+                                    </div>
+                                    <span class="skill-level">90%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 90%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">Ai</span>
+                                        <span>Illustrator</span>
+                                    </div>
+                                    <span class="skill-level">70%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 70%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">C4</span>
+                                        <span>C4D</span>
+                                    </div>
+                                    <span class="skill-level">60%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 60%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">3D</span>
+                                        <span>建模渲染</span>
+                                    </div>
+                                    <span class="skill-level">80%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 80%"></div>
+                                </div>
+                            </div>
+
+                            <div class="skill-item">
+                                <div class="skill-header">
+                                    <div class="skill-name">
+                                        <span class="skill-icon">Ai</span>
+                                        <span>AI</span>
+                                    </div>
+                                    <span class="skill-level">80%</span>
+                                </div>
+                                <div class="skill-bar">
+                                    <div class="skill-progress" style="width: 80%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="skills-category">
+                        <h4>专业技能</h4>
+                        <div class="skills-tags">
+                            <span class="skill-tag">
+                                <span class="tag-icon">📦</span>
+                                包装设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">🎨</span>
+                                平面设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">🎮</span>
+                                3D设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">🏗️</span>
+                                建模渲染
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">🎯</span>
+                                品牌设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">✨</span>
+                                定制设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">👔</span>
+                                服装设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">💡</span>
+                                产品设计
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">📸</span>
+                                摄影
+                            </span>
+                            <span class="skill-tag">
+                                <span class="tag-icon">📷</span>
+                                相机
+                            </span>
                         </div>
                     </div>
                 </div>
-                <!-- 更多作品项... -->
             </div>
         </div>
     </section>
+    <div class="section-divider"></div>
+
+    <!-- 作品展示部分 -->
+    <section class="portfolio-preview">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">精选作品</h2>
+                <p class="section-subtitle">优秀的设计作品展示</p>
+            </div>
+            
+            <div class="portfolio-grid">
+                <div class="portfolio-item" data-aos="fade-up">
+                    <div class="portfolio-image">
+                        <img src="https://picsum.photos/500/300?random=1" alt="包装设计">
+                        <div class="portfolio-overlay">
+                            <span class="category">包装设计</span>
+                            <a href="#" class="view-project">查看详情</a>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>创意包装设计</h3>
+                        <p>品牌产品包装创意设计方案</p>
+                    </div>
+                </div>
+
+                <div class="portfolio-item" data-aos="fade-up" data-aos-delay="100">
+                    <div class="portfolio-image">
+                        <img src="https://picsum.photos/500/300?random=2" alt="电商设计">
+                        <div class="portfolio-overlay">
+                            <span class="category">电商设计</span>
+                            <a href="#" class="view-project">查看详情</a>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>电商视觉设计</h3>
+                        <p>电商平台产品展示设计</p>
+                    </div>
+                </div>
+
+                <div class="portfolio-item" data-aos="fade-up" data-aos-delay="200">
+                    <div class="portfolio-image">
+                        <img src="https://picsum.photos/500/300?random=3" alt="服装设计">
+                        <div class="portfolio-overlay">
+                            <span class="category">服装设计</span>
+                            <a href="#" class="view-project">查看详情</a>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>时尚服装设计</h3>
+                        <p>现代时尚服装系列设计</p>
+                    </div>
+                </div>
+
+                <div class="portfolio-item" data-aos="fade-up" data-aos-delay="300">
+                    <div class="portfolio-image">
+                        <img src="https://picsum.photos/500/300?random=4" alt="摄影展示">
+                        <div class="portfolio-overlay">
+                            <span class="category">摄影展示</span>
+                            <a href="#" class="view-project">查看详情</a>
+                        </div>
+                    </div>
+                    <div class="portfolio-info">
+                        <h3>创意摄影作品</h3>
+                        <p>专业摄影艺术创作</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="section-divider"></div>
+
+    <!-- 客户评价部分 -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">客户评价</h2>
+                <p class="section-subtitle">听听他们怎么说</p>
+            </div>
+
+            <div class="testimonials-grid">
+                <div class="testimonial-card" data-aos="fade-up">
+                    <div class="testimonial-content">
+                        <div class="quote-icon">❝</div>
+                        <p>王设计师的专业能力非常出色，帮助我们重新设计了产品界面，用户反馈非常好，转化率提升了40%。</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format" alt="客户头像">
+                        <div class="author-info">
+                            <h4>张三</h4>
+                            <p>某科技公司 CEO</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="testimonial-content">
+                        <div class="quote-icon">❝</div>
+                        <p>在品牌设计方面展现出了独特的创意视角，不仅准确把握了品牌调性，还为我们带来了创新的设计方案。</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&auto=format" alt="客户头像">
+                        <div class="author-info">
+                            <h4>李四</h4>
+                            <p>某品牌 创始人</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="testimonial-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="testimonial-content">
+                        <div class="quote-icon">❝</div>
+                        <p>工作态度专业，能够准确理解需求，并且在规定时间内高质量完成项目，是值得信赖的合作伙伴。</p>
+                    </div>
+                    <div class="testimonial-author">
+                        <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format" alt="客户头像">
+                        <div class="author-info">
+                            <h4>王五</h4>
+                            <p>某公司 产品总监</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="section-divider"></div>
+
+    <!-- 工作经历部分 -->
+    <section class="experience">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">工作经历</h2>
+                <p class="section-subtitle">专业成长历程</p>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-item" data-aos="fade-up">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-company">
+                            <img src="https://picsum.photos/50/50?random=4" alt="阿里巴巴">
+                            <div class="company-info">
+                                <h3>阿里巴巴</h3>
+                                <span class="period">2021 - 至今</span>
+                            </div>
+                        </div>
+                        <h4>高级UI设计师</h4>
+                        <ul class="achievement-list">
+                            <li>负责核心产品的用户界面设计和交互设计</li>
+                            <li>主导设计系统的搭建，提升设计效率50%</li>
+                            <li>带领团队完成多个重点项目，获得年度最佳团队奖</li>
+                        </ul>
+                        <div class="tags">
+                            <span>UI设计</span>
+                            <span>设计系统</span>
+                            <span>团队管理</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" data-aos="fade-up" data-aos-delay="100">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-company">
+                            <img src="https://picsum.photos/50/50?random=5" alt="腾讯">
+                            <div class="company-info">
+                                <h3>腾讯</h3>
+                                <span class="period">2019 - 2021</span>
+                            </div>
+                        </div>
+                        <h4>UI设计师</h4>
+                        <ul class="achievement-list">
+                            <li>参与多个移动应用的界面设计和用户体验优化</li>
+                            <li>设计的产品获得年度最佳设计奖</li>
+                            <li>负责设计规范的制定和推广</li>
+                        </ul>
+                        <div class="tags">
+                            <span>移动端设计</span>
+                            <span>用户体验</span>
+                            <span>设计规范</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="section-divider"></div>
+
+    <!-- 联系方式部分 -->
+    <section class="contact">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">联系我</h2>
+                <p class="section-subtitle">让我们开始合作</p>
+            </div>
+
+            <div class="contact-container">
+                <div class="contact-info" data-aos="fade-right">
+                    <div class="contact-card">
+                        <div class="contact-methods">
+                            <div class="contact-method">
+                                <div class="icon">📧</div>
+                                <div class="info">
+                                    <h4>邮箱</h4>
+                                    <p>contact@example.com</p>
+                                </div>
+                            </div>
+                            <div class="contact-method">
+                                <div class="icon">📱</div>
+                                <div class="info">
+                                    <h4>电话</h4>
+                                    <p>+86 123 4567 8900</p>
+                                </div>
+                            </div>
+                            <div class="contact-method">
+                                <div class="icon">📍</div>
+                                <div class="info">
+                                    <h4>地址</h4>
+                                    <p>上海市浦东新区</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="social-links">
+                            <a href="#" class="social-link">
+                                <img src="path-to-behance-icon.svg" alt="Behance">
+                            </a>
+                            <a href="#" class="social-link">
+                                <img src="path-to-dribbble-icon.svg" alt="Dribbble">
+                            </a>
+                            <a href="#" class="social-link">
+                                <img src="path-to-linkedin-icon.svg" alt="LinkedIn">
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="contact-form" data-aos="fade-left">
+                    <form>
+                        <div class="form-group">
+                            <label for="name">姓名</label>
+                            <input type="text" id="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">邮箱</label>
+                            <input type="email" id="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="message">留言</label>
+                            <textarea id="message" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="submit-btn">发送消息</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+    <div class="section-divider"></div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init();
+    </script>
 </body>
-</html> 
+</html>
