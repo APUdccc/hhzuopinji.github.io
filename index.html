@@ -7,22 +7,25 @@
     <meta name="description" content="王小明，高级 UI / 视觉设计师。包装、品牌、3D 与摄影作品集。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #f7f5f0;
-            --surface: #ffffff;
-            --ink: #1f2421;
-            --ink-soft: #5b625d;
-            --ink-faint: #8f958f;
-            --line: #e4e0d6;
-            --accent: #5e7d6a;
-            --accent-soft: #e6ede7;
-            --warm: #efe7da;
-            --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+            --bg: #0b0c0f;
+            --surface: #121419;
+            --elev: #171a20;
+            --ink: #eef0f3;
+            --ink-soft: #a4aab4;
+            --ink-faint: #6c727c;
+            --line: rgba(255, 255, 255, .08);
+            --accent: #7ee2b8;
+            --accent-2: #8b7bff;
+            --accent-soft: rgba(126, 226, 184, .1);
+            --warm: rgba(139, 123, 255, .16);
+            --serif: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
             --sans: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-            --radius: 14px;
+            --radius: 16px;
             --max: 1120px;
+            color-scheme: dark;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -59,7 +62,7 @@
         }
 
         .nav.scrolled {
-            background: rgba(247, 245, 240, .85);
+            background: rgba(11, 12, 15, .72);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-bottom-color: var(--line);
@@ -141,6 +144,20 @@
             padding: 120px 0 80px;
             position: relative;
             overflow: hidden;
+            isolation: isolate;
+        }
+
+        .hero-grid {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .05) 1px, transparent 1px);
+            background-size: 64px 64px;
+            -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 40%, #000 30%, transparent 100%);
+            mask-image: radial-gradient(ellipse 75% 65% at 50% 40%, #000 30%, transparent 100%);
+            pointer-events: none;
         }
 
         .hero::before {
@@ -149,7 +166,8 @@
             width: 560px; height: 560px;
             right: -140px; top: 12%;
             border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, var(--accent-soft), transparent 70%);
+            background: radial-gradient(circle at 30% 30%, rgba(126, 226, 184, .18), transparent 65%);
+            filter: blur(20px);
             z-index: -1;
         }
 
@@ -160,6 +178,7 @@
             left: -120px; bottom: -80px;
             border-radius: 50%;
             background: radial-gradient(circle, var(--warm), transparent 70%);
+            filter: blur(20px);
             z-index: -1;
         }
 
@@ -182,7 +201,8 @@
 
         .hero h1 {
             font-family: var(--serif);
-            font-weight: 400;
+            font-weight: 600;
+            letter-spacing: -.02em;
             font-size: clamp(2.6rem, 7vw, 5.2rem);
             line-height: 1.2;
             letter-spacing: .01em;
@@ -191,7 +211,10 @@
 
         .hero h1 em {
             font-style: normal;
-            color: var(--accent);
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
 
         .hero-sub {
@@ -222,10 +245,10 @@
             font-family: inherit;
         }
 
-        .btn-primary { background: var(--ink); color: var(--bg); }
-        .btn-primary:hover { background: var(--accent); border-color: var(--accent); }
-        .btn-ghost { background: transparent; color: var(--ink); }
-        .btn-ghost:hover { background: var(--ink); color: var(--bg); }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: #0b0c0f; }
+        .btn-primary:hover { background: #a2f0cf; border-color: #a2f0cf; box-shadow: 0 8px 30px rgba(126, 226, 184, .25); }
+        .btn-ghost { background: transparent; color: var(--ink); border-color: rgba(255, 255, 255, .2); }
+        .btn-ghost:hover { background: rgba(255, 255, 255, .06); border-color: var(--ink); }
         .btn .arrow { transition: transform .25s; }
         .btn:hover .arrow { transform: translateX(3px); }
 
@@ -241,9 +264,10 @@
 
         .hero-meta strong {
             display: block;
+            color: var(--ink);
             font-family: var(--serif);
             font-size: 2rem;
-            font-weight: 400;
+            font-weight: 600;
             line-height: 1.2;
         }
 
@@ -275,7 +299,8 @@
 
         .section-title {
             font-family: var(--serif);
-            font-weight: 400;
+            font-weight: 600;
+            letter-spacing: -.02em;
             font-size: clamp(1.9rem, 4vw, 2.6rem);
             line-height: 1.25;
         }
@@ -294,7 +319,7 @@
         }
 
         .profile {
-            background: var(--bg);
+            background: var(--elev);
             border-radius: var(--radius);
             padding: 36px 32px;
             border: 1px solid var(--line);
@@ -404,9 +429,10 @@
 
         .tool-bar i {
             display: block;
+            box-shadow: 0 0 12px rgba(126, 226, 184, .5);
             height: 100%;
             width: 0;
-            background: var(--accent);
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
             border-radius: 3px;
             transition: width 1.2s cubic-bezier(.2, .7, .2, 1);
         }
@@ -429,7 +455,7 @@
             border-radius: 999px;
             font-size: .9rem;
             color: var(--ink-soft);
-            background: var(--surface);
+            background: rgba(255, 255, 255, .02);
             transition: border-color .2s, color .2s;
         }
 
@@ -449,7 +475,8 @@
             border-radius: var(--radius);
             overflow: hidden;
             position: relative;
-            background: var(--accent-soft);
+            background: var(--surface);
+            border: 1px solid var(--line);
         }
 
         .work-media img {
@@ -465,15 +492,15 @@
             place-items: center;
             font-family: var(--serif);
             font-size: 1.1rem;
-            color: rgba(31, 36, 33, .35);
+            color: rgba(255, 255, 255, .28);
             letter-spacing: .3em;
             transition: transform .8s ease;
         }
 
-        .ph-1 { background: linear-gradient(140deg, #e6ede7, #d3dfd6); }
-        .ph-2 { background: linear-gradient(140deg, #efe7da, #e3d6c2); }
-        .ph-3 { background: linear-gradient(140deg, #e8e6ef, #d8d4e4); }
-        .ph-4 { background: linear-gradient(140deg, #e3ebee, #cfdde2); }
+        .ph-1 { background: radial-gradient(circle at 25% 20%, rgba(126, 226, 184, .28), transparent 60%), #15181d; }
+        .ph-2 { background: radial-gradient(circle at 75% 25%, rgba(139, 123, 255, .3), transparent 60%), #15171d; }
+        .ph-3 { background: radial-gradient(circle at 30% 80%, rgba(255, 138, 170, .22), transparent 60%), #17161b; }
+        .ph-4 { background: radial-gradient(circle at 70% 75%, rgba(96, 180, 255, .26), transparent 60%), #14171c; }
 
         .work:hover .work-media img,
         .work:hover .placeholder { transform: scale(1.04); }
@@ -488,7 +515,8 @@
 
         .work-info h3 {
             font-family: var(--serif);
-            font-weight: 400;
+            font-weight: 600;
+            letter-spacing: -.02em;
             font-size: 1.3rem;
         }
 
@@ -527,7 +555,7 @@
         .job-company {
             font-family: var(--serif);
             font-size: 1.5rem;
-            font-weight: 400;
+            font-weight: 600;
         }
 
         .job-role {
@@ -562,7 +590,7 @@
         }
 
         .quote {
-            background: var(--bg);
+            background: var(--elev);
             border: 1px solid var(--line);
             border-radius: var(--radius);
             padding: 36px 32px;
@@ -573,7 +601,7 @@
             transition: transform .3s, border-color .3s;
         }
 
-        .quote:hover { transform: translateY(-4px); border-color: var(--accent); }
+        .quote:hover { transform: translateY(-4px); border-color: rgba(126, 226, 184, .4); }
 
         .quote blockquote {
             font-family: var(--serif);
@@ -782,6 +810,7 @@
     <main>
         <!-- Hero -->
         <section class="hero" id="home">
+            <div class="hero-grid" aria-hidden="true"></div>
             <div class="container">
                 <p class="eyebrow reveal">Designer · Portfolio</p>
                 <h1 class="reveal">用设计诠释创意，<br>让<em>美好</em>自然发生。</h1>
