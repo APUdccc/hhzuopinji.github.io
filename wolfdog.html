@@ -633,87 +633,99 @@ function drawDog(dt, v) {
 function beat0(t) { const c = (t * .55) % 1; return smooth(0, .06, c) * (1 - smooth(.5, .58, c)); }
 function drawGorilla(t, sp, ph, T) {
   const run = Math.min(sp, 2.5), mv = Math.min(1, sp * 2.5);
-  const dark = T(hex('#6a3a22')), silver = T(hex('#d6994f')), chest = T(hex('#8c4e2b')), face = T(hex('#1d120d')), muzzle = T(hex('#6b4530'));
-  const far = mixC(dark, [20, 8, 12], .4);
+  const T2 = c => mixC(c, pal.tint, .12);
+  const fur = T2(hex('#15100f')), furHi = T2(hex('#332825')), saddle = T2(hex('#7a6a5e')), skin = T2(hex('#2b1f1c')), skinHi = T2(hex('#4d382f'));
+  const edge = 'rgba(4,3,3,.95)';
+  const far = mixC(fur, [6, 6, 16], .35);
+  const beat = beat0(t), lean = Math.sin(TAU * ph - .7) * mv;
   ctx.save();
-  // secondary motion: the rider lags behind the dog's bounce and leans into the wind
-  ctx.translate(-12, -44); ctx.rotate(.14 * Math.min(run, 1.6) + .13 * Math.sin(TAU * ph - .7) * mv);
-  ctx.translate(12, 44 + 9 * Math.sin(TAU * 2 * ph - .9) * mv - 4 * Math.abs(Math.sin(TAU * ph - .3)) * mv);
-  const lean = Math.sin(TAU * ph - .7) * mv;
-  ctx.translate(-12, -44); ctx.scale(1.75, 1.75); ctx.translate(12, 44);
+  // sit on the back: origin = seat, then scale up; rider lags the dog's bounce and rocks with the stride
+  ctx.translate(-14, -42);
+  ctx.translate(0, 6 * Math.sin(TAU * 2 * ph - .9) * mv - 3 * Math.abs(Math.sin(TAU * ph - .3)) * mv);
+  ctx.rotate(.06 * Math.min(run, 1.6) + .07 * Math.sin(TAU * ph - .7) * mv);
+  ctx.scale(1.42, 1.42);
+  ctx.lineCap = 'round';
 
-  // far arm + leg (behind torso)
-  const S0 = [12, -78], sh2 = [16, -76];
-  const fx = 60 + Math.sin(t * 5 + 1) * 4 * mv, fy = -66 + Math.cos(TAU * ph) * 5 * mv;
-  const armFar = ik(S0[0], S0[1], fx, fy, 34, 38, 1);
-  ctx.fillStyle = css(far); limb(S0[0], S0[1], armFar[0], armFar[1], 17, 12); limb(armFar[0], armFar[1], fx, fy, 12, 11);
-  ctx.beginPath(); ctx.arc(fx + 2, fy + 1, 7.5, 0, TAU); ctx.fill();
-  const swing = Math.sin(TAU * ph + 1) * 12 * Math.max(mv, .25) + Math.sin(t * 2) * 2;
-  const legFar = ik(-10, -40, 8 + swing, 6, 32, 34, -1);
-  limb(-10, -40, legFar[0], legFar[1], 20, 13); limb(legFar[0], legFar[1], 8 + swing, 6, 13, 10);
-  ctx.beginPath(); ctx.ellipse(11 + swing, 6, 9, 5, .1, 0, TAU); ctx.fill();
+  const shoulder = [22, -50];
+  const swing = Math.sin(TAU * ph + 1) * 5 * mv;
 
-  // torso: hunched back, silverback saddle
-  const tg = ctx.createLinearGradient(-30, -96, 20, -30);
-  tg.addColorStop(0, css(mixC(dark, silver, .55))); tg.addColorStop(.42, css(dark)); tg.addColorStop(1, css(chest));
-  ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(-32, -38);
-  ctx.bezierCurveTo(-44, -62, -32, -88, -8, -95);
-  ctx.bezierCurveTo(14, -101, 32, -94, 38, -78);
-  ctx.bezierCurveTo(48, -62, 42, -46, 27, -38);
-  ctx.bezierCurveTo(12, -32, -14, -30, -32, -38); ctx.closePath(); ctx.fill();
-  // silver saddle patch
-  ctx.fillStyle = css(silver, .62); ctx.beginPath(); ctx.moveTo(-36, -50);
-  ctx.bezierCurveTo(-38, -72, -22, -90, -4, -93); ctx.bezierCurveTo(8, -88, 2, -66, -6, -54); ctx.bezierCurveTo(-14, -46, -28, -44, -36, -50); ctx.fill();
-  // chest
-  ctx.fillStyle = css(chest, .9); ctx.beginPath(); ctx.ellipse(24, -58, 13, 17, .25, 0, TAU); ctx.fill();
-  // fur tufts in the wind
-  ctx.lineCap = 'round'; ctx.lineWidth = 1.8;
-  for (let i = 0; i < 16; i++) {
-    const a = i / 15, x = lerp(-34, 12, a), y = -38 - Math.sin(a * Math.PI * .55 + .1) * 57 - (i === 0 ? 0 : 0);
-    const px = -36 + a * 46, py = -46 - Math.sin(a * 1.9) * 48;
-    const ang = Math.PI + .3 - run * .14 + Math.sin(t * (13 + run * 5) + i * .8) * (.1 + .08 * run);
-    ctx.strokeStyle = css(i % 2 ? silver : dark, .55);
-    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(ang) * (9 + run * 3), py + Math.sin(ang) * (9 + run * 3)); ctx.stroke();
+  // far arm: knuckles planted on the withers
+  const fx = 46 + Math.sin(t * 5 + 1) * 2 * mv, fy = -1 + Math.cos(TAU * ph) * 2 * mv;
+  const armFar = ik(shoulder[0] - 4, shoulder[1] + 2, fx, fy, 30, 32, 1);
+  ctx.fillStyle = edge; limb(shoulder[0] - 4, shoulder[1] + 2, armFar[0], armFar[1], 22, 17);
+  ctx.fillStyle = css(far); limb(shoulder[0] - 4, shoulder[1] + 2, armFar[0], armFar[1], 20, 15); limb(armFar[0], armFar[1], fx, fy, 15, 13);
+  ctx.beginPath(); ctx.ellipse(fx + 1, fy, 8, 6.5, .2, 0, TAU); ctx.fill();
+  // far leg tucked against the dog's ribs
+  const lf = ik(-14, -10, -4 + swing * .5, 2, 22, 22, -1);
+  limb(-14, -10, lf[0], lf[1], 20, 13); limb(lf[0], lf[1], -4 + swing * .5, 2, 13, 10);
+
+  // torso: barrel chest, humped shoulders, no neck
+  const tg = ctx.createLinearGradient(-30, -70, 30, 0);
+  tg.addColorStop(0, css(mixC(fur, saddle, .5))); tg.addColorStop(.45, css(fur)); tg.addColorStop(1, css(furHi));
+  ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(-26, -2);
+  ctx.bezierCurveTo(-36, -24, -32, -50, -12, -60);
+  ctx.bezierCurveTo(4, -68, 26, -66, 38, -52);
+  ctx.bezierCurveTo(48, -42, 46, -24, 34, -13);
+  ctx.bezierCurveTo(26, -5, 10, 1, -6, 2); ctx.closePath(); ctx.fill();
+  // silverback saddle
+  ctx.fillStyle = css(saddle, .7); ctx.beginPath(); ctx.moveTo(-32, -18);
+  ctx.bezierCurveTo(-36, -40, -26, -58, -8, -64); ctx.bezierCurveTo(4, -60, 4, -40, -2, -24);
+  ctx.bezierCurveTo(-10, -12, -24, -10, -32, -18); ctx.fill();
+  ctx.strokeStyle = css(pal.rim, .5 - pal.night * .2); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(-32, -34); ctx.bezierCurveTo(-32, -50, -22, -58, -8, -61); ctx.stroke();
+  // pecs + belly
+  ctx.fillStyle = css(furHi, .95); ctx.beginPath(); ctx.ellipse(28, -34, 15, 20, .2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(fur, .8); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(20, -30); ctx.quadraticCurveTo(30, -24, 42, -32); ctx.stroke();
+  // wind-blown fur along the back
+  ctx.lineWidth = 1.6;
+  for (let i = 0; i < 18; i++) {
+    const a = i / 17, px = -30 + a * 62, py = -6 - Math.sin(a * 2.2 + .2) * 64 + a * a * 6;
+    const ang = Math.PI + .35 - run * .14 + Math.sin(t * (13 + run * 5) + i * .8) * (.1 + .08 * run);
+    const len = 8 + run * 3.5 + (i % 3) * 2;
+    ctx.strokeStyle = css(i % 2 ? saddle : furHi, .6);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(ang) * len, py + Math.sin(ang) * len); ctx.stroke();
   }
 
-  // near leg draped over the dog's flank
-  const legN = ik(-14, -40, 2 - swing, 8, 32, 34, -1);
-  ctx.fillStyle = css(dark); limb(-14, -40, legN[0], legN[1], 24, 15); limb(legN[0], legN[1], 2 - swing, 8, 15, 11);
-  ctx.fillStyle = css(mixC(dark, chest, .6)); ctx.beginPath(); ctx.ellipse(4 - swing, 8, 10, 5.5, .1, 0, TAU); ctx.fill();
-  ctx.strokeStyle = css(face, .8); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8 - swing, 5); ctx.lineTo(9 - swing, 11); ctx.moveTo(13 - swing, 6); ctx.lineTo(14 - swing, 11); ctx.stroke();
+  // near leg: thigh folded, foot on the dog's flank
+  const ln = ik(-16, -8, 4 - swing * .5, 4, 22, 24, -1);
+  ctx.fillStyle = edge; limb(-16, -8, ln[0], ln[1], 28, 19);
+  ctx.fillStyle = css(fur); limb(-16, -8, ln[0], ln[1], 26, 17); limb(ln[0], ln[1], 4 - swing * .5, 4, 17, 12);
+  ctx.fillStyle = css(skin); ctx.beginPath(); ctx.ellipse(8 - swing * .5, 5, 11, 5.5, .05, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(fur, .9); ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i < 3; i++) { ctx.moveTo(11 + i * 3 - swing * .5, 3); ctx.lineTo(12 + i * 3 - swing * .5, 9); } ctx.stroke();
 
-  // head
-  ctx.save(); ctx.translate(36, -90);
-  ctx.rotate(.12 + .1 * run - .16 * lean + .05 * Math.sin(t * 3) - .18 * beat0(t));
-  const roar = Math.max(beat0(t), sp > .3 ? .5 + .5 * Math.sin(t * 6 + 1) : 0), jaw = .12 + .34 * roar;
-  ctx.fillStyle = css(dark); ctx.beginPath(); ctx.ellipse(-4, -12, 11, 9, -.2, 0, TAU); ctx.fill(); // crest
-  ctx.fillStyle = css(face); ctx.beginPath(); ctx.ellipse(0, 0, 16, 15, 0, 0, TAU); ctx.fill(); // skull
-  // lower jaw & open mouth
-  ctx.save(); ctx.translate(-2, 8); ctx.rotate(jaw);
-  ctx.fillStyle = '#4a1220'; ctx.beginPath(); ctx.ellipse(8, 5, 11, 6, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = css(muzzle); ctx.beginPath(); ctx.ellipse(7, 8, 11, 5.5, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(2 + i * 4, 4); ctx.lineTo(3.5 + i * 4, 0); ctx.lineTo(5 + i * 4, 4); ctx.fill(); }
+  // head: small, sunk between the shoulders, heavy brow, flat face
+  ctx.save(); ctx.translate(43, -71); ctx.scale(1.2, 1.2);
+  ctx.rotate(.1 + .08 * run - .12 * lean - .2 * beat + .04 * Math.sin(t * 3));
+  const roar = Math.max(beat, sp > .3 ? .5 + .5 * Math.sin(t * 6 + 1) : 0), jaw = .1 + .36 * roar;
+  ctx.fillStyle = css(fur); ctx.beginPath(); ctx.moveTo(-14, -3); ctx.quadraticCurveTo(-12, -22, 2, -24); ctx.quadraticCurveTo(12, -22, 14, -8); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill(); // sagittal crest
+  ctx.fillStyle = css(fur); ctx.beginPath(); ctx.ellipse(-2, -2, 15, 14, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = css(skin); ctx.beginPath(); ctx.ellipse(-16, 0, 3, 4.5, 0, 0, TAU); ctx.fill(); // ear
+  // bare face
+  ctx.fillStyle = css(skin); ctx.beginPath(); ctx.moveTo(-2, -8); ctx.quadraticCurveTo(12, -10, 19, -3); ctx.quadraticCurveTo(24, 6, 18, 12); ctx.quadraticCurveTo(6, 15, -4, 10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = css(skinHi, .8); ctx.beginPath(); ctx.ellipse(13, 5, 9, 6.5, .1, 0, TAU); ctx.fill(); // muzzle
+  // lower jaw & mouth
+  ctx.save(); ctx.translate(2, 10); ctx.rotate(jaw);
+  ctx.fillStyle = '#4a1220'; ctx.beginPath(); ctx.ellipse(9, 4, 11, 6, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(3 + i * 4, 2); ctx.lineTo(4.5 + i * 4, -2); ctx.lineTo(6 + i * 4, 2); ctx.fill(); }
+  ctx.fillStyle = css(skin); ctx.beginPath(); ctx.ellipse(9, 8, 11, 5, 0, 0, TAU); ctx.fill();
   ctx.restore();
-  ctx.fillStyle = css(muzzle); ctx.beginPath(); ctx.ellipse(9, 2, 10, 8, .1, 0, TAU); ctx.fill(); // muzzle
-  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(4 + i * 4.5, 8); ctx.lineTo(5.8 + i * 4.5, 12 + jaw * 8); ctx.lineTo(7.5 + i * 4.5, 8); ctx.fill(); }
-  ctx.fillStyle = css(face); ctx.beginPath(); ctx.ellipse(14, 0, 1.6, 1, 0, 0, TAU); ctx.ellipse(17, 1, 1.6, 1, 0, 0, TAU); ctx.fill(); // nostrils
-  ctx.strokeStyle = '#08080a'; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(1, -6); ctx.lineTo(14, -3); ctx.stroke(); // brow ridge
-  ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.arc(9, -2, 1.9, 0, TAU); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(9.6, -2.7, .7, 0, TAU); ctx.fill();
-  ctx.strokeStyle = css(dark, .9); ctx.lineWidth = 1.6; // flying hair on the crown
-  for (let i = 0; i < 5; i++) { const a = Math.PI + .25 + Math.sin(t * 15 + i) * .15; ctx.beginPath(); ctx.moveTo(-8 + i * 2, -18 + i); ctx.lineTo(-8 + i * 2 + Math.cos(a) * 9, -18 + i + Math.sin(a) * 9); ctx.stroke(); }
+  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(7 + i * 4, 10); ctx.lineTo(8.6 + i * 4, 14 + jaw * 6); ctx.lineTo(10.2 + i * 4, 10); ctx.fill(); }
+  ctx.fillStyle = '#0a0606'; ctx.beginPath(); ctx.ellipse(17, 1, 2.4, 1.6, .3, 0, TAU); ctx.fill(); // nostril
+  ctx.strokeStyle = '#0a0606'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(1, -6); ctx.lineTo(17, -4); ctx.stroke(); // brow ridge
+  ctx.fillStyle = '#e8a53a'; ctx.beginPath(); ctx.arc(10, -1, 1.9, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(10.7, -1.8, .7, 0, TAU); ctx.fill();
   ctx.restore();
 
-  // near arm gripping the dog's neck fur
-  const S1 = [8, -74];
-  // periodically the rider lets go of the neck and pounds its chest
-  const c = (t * .55) % 1, beat = smooth(0, .06, c) * (1 - smooth(.5, .58, c));
-  const hop = beat * (Math.abs(Math.sin(t * 20)) * 12);
-  const gx = lerp(58 + Math.sin(t * 9) * .8 * mv, 24 + Math.sin(t * 20) * 3, beat), gy = lerp(-60 + lean * 1.5, -52 - hop * .6, beat);
-  const armN = ik(S1[0], S1[1], gx, gy, 34, 38, 1);
-  ctx.fillStyle = css(dark); limb(S1[0], S1[1], armN[0], armN[1], 20, 14); limb(armN[0], armN[1], gx, gy, 14, 12);
-  ctx.beginPath(); ctx.arc(gx + 1, gy, 8.5, 0, TAU); ctx.fill();
-  ctx.strokeStyle = css(face, .85); ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i < 3; i++) { ctx.moveTo(gx + 4 + i * 2.5, gy - 4 + i * 3); ctx.lineTo(gx + 8 + i * 2.5, gy - 2 + i * 3); } ctx.stroke();
+  // near arm: long and thick; grips the withers, or pounds the chest
+  const S1 = [20, -46];
+  const gx = lerp(44 + Math.sin(t * 9) * .8 * mv, 30 + Math.sin(t * 22) * 3, beat);
+  const gy = lerp(-3 + lean * 1.5, -34 - Math.abs(Math.sin(t * 22)) * 7, beat);
+  const armN = ik(S1[0], S1[1], gx, gy, 30, 32, 1);
+  ctx.fillStyle = edge; ctx.beginPath(); ctx.arc(S1[0], S1[1], 17, 0, TAU); ctx.fill(); limb(S1[0], S1[1], armN[0], armN[1], 27, 20); limb(armN[0], armN[1], gx, gy, 20, 17);
+  ctx.fillStyle = css(furHi); ctx.beginPath(); ctx.arc(S1[0], S1[1], 15, 0, TAU); ctx.fill(); // shoulder mass
+  limb(S1[0], S1[1], armN[0], armN[1], 24, 17); limb(armN[0], armN[1], gx, gy, 17, 14);
+  ctx.strokeStyle = css(pal.rim, .45 - pal.night * .2); ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(S1[0] - 4, S1[1] - 14); ctx.quadraticCurveTo(S1[0] + 10, S1[1] - 14, S1[0] + 14, S1[1] - 4); ctx.stroke();
+  ctx.fillStyle = css(furHi); ctx.beginPath(); ctx.ellipse(gx + 1, gy, 9, 7, .2, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(skin, .9); ctx.lineWidth = 1.1; ctx.beginPath(); for (let i = 0; i < 3; i++) { ctx.moveTo(gx + 4 + i * 2.6, gy - 3 + i * 2.5); ctx.lineTo(gx + 7 + i * 2.6, gy + 3 + i * 2.5); } ctx.stroke();
   ctx.restore();
 }
 
