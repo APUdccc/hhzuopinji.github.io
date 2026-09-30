@@ -71,6 +71,16 @@
   .result div { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; font-size: 12px; color: var(--dim); }
   .result b { display: block; font-size: 22px; color: var(--text); margin-top: 2px; font-variant-numeric: tabular-nums; }
   #newbest { color: var(--warn); font-weight: 700; height: 20px; margin-top: -8px; margin-bottom: 8px; }
+  #evoRow { margin-top: 10px; }
+  #evoBar { background: linear-gradient(90deg, #8b5cf6, #5ee7ff); }
+  #console { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); width: min(520px, 92vw); z-index: 12;
+    display: none; background: rgba(4, 12, 18, 0.94); border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px;
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
+  #console.show { display: block; }
+  #conLog { max-height: 130px; overflow: auto; margin-bottom: 8px; line-height: 1.6; color: #9fe8d0; }
+  #conLog .dim { color: var(--dim); } #conLog .bad { color: var(--bad); } #conLog .ok { color: var(--good); }
+  .conrow { display: flex; gap: 8px; align-items: center; color: var(--accent); }
+  #conIn { flex: 1; background: transparent; border: 0; outline: 0; color: #fff; font: inherit; font-size: 16px; user-select: text; -webkit-user-select: text; }
   @media (max-width: 560px) { #minimap { width: 96px; height: 96px; } #hint { display: none; } }
 </style>
 </head>
@@ -87,29 +97,40 @@
     <div>吞噬 <b id="killTxt">0</b></div>
     <div>得分 <b id="scoreTxt">0</b></div>
   </div>
+  <div id="evoRow">
+    <div class="barlabel"><span id="evoLabel">进化</span><span id="evoPct">0%</span></div>
+    <div class="bar"><i id="evoBar" style="width:0"></i></div>
+  </div>
 </div>
 
 <div id="hud-right" class="hud">
   <span id="best">最高分 0</span>
+  <button class="ibtn" id="conBtn" title="控制台 (`)">⌨</button>
   <button class="ibtn" id="muteBtn" title="静音 (M)">🔊</button>
   <button class="ibtn" id="pauseBtn" title="暂停 (P)">⏸</button>
 </div>
 
 <canvas id="minimap" class="hud" width="256" height="256"></canvas>
 <div id="dashbtn" class="hud"><div class="cd" id="dashcd"></div><span>冲刺</span></div>
-<div id="hint" class="hud">鼠标 / WASD 移动 · 空格或右键冲刺 · P 暂停 · M 静音</div>
+<div id="hint" class="hud">鼠标 / WASD 移动 · 空格或右键冲刺 · P 暂停 · M 静音 · ` 控制台</div>
 <div id="toast" class="hud"></div>
+
+<div id="console">
+  <div id="conLog"></div>
+  <div class="conrow"><span>&gt;</span><input id="conIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="输入指令后回车（help 查看指令）"></div>
+</div>
 
 <div id="menu" class="overlay show">
   <div class="card">
     <h1>求生细胞</h1>
-    <p class="sub">你是培养皿里一颗刚诞生的原核细胞。<br>吞噬养分、避开天敌，一步步进化，活下去。</p>
+    <p class="sub">你是培养皿里一颗刚诞生的原核细胞。<br>吞噬养分、避开天敌，从单细胞一路进化成鱼类、两栖类、爬行类，最终成为哺乳动物。</p>
     <ul class="rules">
       <li><span class="dot" style="background:#5dffa8"></span>绿色细胞比你小，可以吞噬它们变大</li>
       <li><span class="dot" style="background:#ffd166"></span>黄色细胞和你差不多大，互相推挤</li>
       <li><span class="dot" style="background:#ff5d6c"></span>红色细胞比你大，被咬会掉能量，被整个吞下就死亡</li>
       <li><span class="dot" style="background:#9be04b"></span>带刺的病毒会重创你，一定要绕开</li>
       <li><span class="dot" style="background:#ffe27a"></span>能量会不断流失，吃养分补充，归零即饿死</li>
+      <li><span class="dot" style="background:#8b5cf6"></span>体积越大进化越高级，按 ` 键打开控制台</li>
     </ul>
     <button class="btn" id="startBtn">开始求生</button>
   </div>
@@ -155,13 +176,17 @@ const WORLD_R = 2000;                  // 培养皿半径
 const FOOD_COUNT = 380;
 const VIRUS_COUNT = 14;
 const STAGES = [
-  { name: '原核细胞',   mass: 0,    hue: 145, sat: 80, lit: 55 },
-  { name: '真核细胞',   mass: 220,  hue: 190, sat: 85, lit: 58 },
-  { name: '纤毛虫',     mass: 550,  hue: 265, sat: 80, lit: 68 },
-  { name: '变形虫',     mass: 1200, hue: 42,  sat: 90, lit: 60 },
-  { name: '多细胞群落', mass: 2600, hue: 335, sat: 85, lit: 68 },
-  { name: '终极生命',   mass: 5000, hue: 55,  sat: 95, lit: 78 },
+  { name: '原核细胞',   mass: 0,     hue: 145, sat: 80, lit: 55 },
+  { name: '真核细胞',   mass: 200,   hue: 190, sat: 85, lit: 58 },
+  { name: '纤毛虫',     mass: 450,   hue: 265, sat: 80, lit: 68 },
+  { name: '多细胞群落', mass: 900,   hue: 335, sat: 85, lit: 68 },
+  { name: '原始鱼类',   mass: 1600,  hue: 205, sat: 80, lit: 58 },
+  { name: '硬骨鱼',     mass: 2700,  hue: 24,  sat: 92, lit: 58 },
+  { name: '两栖类',     mass: 4200,  hue: 100, sat: 70, lit: 52 },
+  { name: '爬行类',     mass: 6500,  hue: 70,  sat: 65, lit: 46 },
+  { name: '哺乳动物',   mass: 10000, hue: 32,  sat: 85, lit: 56 },
 ];
+const MAX_M = 12000;                   // 敌方体积上限
 
 let W = 0, H = 0, DPR = 1;
 function resize() {
@@ -201,11 +226,15 @@ function beep(freq, dur, type = 'sine', vol = 0.06, slide = 0) {
 }
 
 /* ---------- 游戏状态 ---------- */
+const conEl = $('console'), conIn = $('conIn'), conLog = $('conLog');
+let conOpen = false;
 let state = 'menu';      // menu | play | pause | over
 let player, foods, viruses, enemies, parts;
 let time, kills, peakMass, spawnTimer, combo, comboTimer, hitTimer, hitCause, shake, stageIdx;
 const cam = { x: 0, y: 0, zoom: 1 };
 let bokeh = [];
+let foodK = 1;            // 养分随进化阶段变大变肥
+let cheated = false;
 let gt = 0;               // 全局动画时间
 
 function randInDish(margin = 60) {
@@ -239,10 +268,10 @@ function spawnEnemy(anywhere) {
   const diff = Math.min(1, time / 240);
   let mass, hunter = false;
   const f = 0.3 + Math.pow(Math.random(), 1.3 - 0.5 * diff) * (1.0 + 1.0 * Math.min(1, time / 30));
-  mass = clamp(player.mass * f, 30, 3600);
+  mass = clamp(player.mass * f, 30, MAX_M);
   if (time > 25 && Math.random() < 0.08 + 0.2 * diff) {
     hunter = true;
-    mass = clamp(player.mass * rand(1.25, 1.85), 60, 3800);
+    mass = clamp(player.mass * rand(1.25, 1.85), 60, MAX_M);
   }
   let pos = null;
   for (let i = 0; i < 12 && !pos; i++) {
@@ -255,16 +284,17 @@ function spawnEnemy(anywhere) {
     if (Math.hypot(c.x, c.y) < WORLD_R - 80 && (!anywhere || Math.hypot(c.x - player.x, c.y - player.y) > 500)) pos = c;
   }
   if (!pos) return;
+  const h0 = Math.random() * 6.28;
   enemies.push({
     x: pos.x, y: pos.y, vx: 0, vy: 0, mass, r: radiusOf(mass), hunter,
     dx: 0, dy: 0, boost: 1, think: Math.random() * 0.3, wa: Math.random() * 6.28,
-    heading: Math.random() * 6.28, ph: Math.random() * 6.28, org: makeOrganelles(5)
+    heading: h0, hd: h0, ph: Math.random() * 6.28, org: makeOrganelles(5)
   });
 }
 
 function newGame() {
   player = { x: 0, y: 0, vx: 0, vy: 0, mass: 100, r: radiusOf(100), energy: 100,
-             heading: 0, dash: 0, dashCd: 0, inv: 0, ph: 0, org: makeOrganelles(6), dirx: 1, diry: 0 };
+             heading: 0, hd: 0, dash: 0, dashCd: 0, inv: 0, ph: 0, org: makeOrganelles(6), dirx: 1, diry: 0 };
   foods = []; viruses = []; enemies = []; parts = [];
   for (let i = 0; i < FOOD_COUNT; i++) foods.push(makeFood());
   for (let i = 0; i < VIRUS_COUNT; i++) {
@@ -273,7 +303,7 @@ function newGame() {
     viruses.push(v);
   }
   time = 0; kills = 0; peakMass = 100; spawnTimer = 0; combo = 0; comboTimer = 0;
-  hitTimer = 0; hitCause = ''; shake = 0; stageIdx = 0;
+  hitTimer = 0; hitCause = ''; shake = 0; stageIdx = 0; cheated = false; foodK = 1;
   cam.x = 0; cam.y = 0; cam.zoom = 1.1;
   for (let i = 0; i < 16; i++) spawnEnemy(true);
   bokeh = [];
@@ -286,6 +316,12 @@ const ptr = { x: 0, y: 0, active: false };
 let isTouch = false;
 
 window.addEventListener('keydown', e => {
+  if (conOpen) {
+    if (e.code === 'Escape' || e.code === 'Backquote') { e.preventDefault(); closeConsole(); }
+    else if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); runCommand(conIn.value); conIn.value = ''; }
+    return;
+  }
+  if (e.code === 'Backquote') { e.preventDefault(); openConsole(); return; }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   audioInit();
   if (e.repeat) { keys[e.code] = true; return; }
@@ -371,10 +407,10 @@ function die(reason) {
   burst(player.x, player.y, 'hsla(0,90%,65%,', 40, 320, player.r * 0.35);
   beep(220, 0.7, 'sawtooth', 0.09, -180);
   const score = calcScore();
-  const isBest = score > bestScore;
+  const isBest = !cheated && score > bestScore;
   if (isBest) { bestScore = score; saveBest(); }
   $('overReason').textContent = reason;
-  $('newbest').textContent = isBest ? '🏆 新纪录！' : '';
+  $('newbest').textContent = cheated ? '⚠ 使用了作弊码，成绩不计入最高分' : isBest ? '🏆 新纪录！' : '';
   $('rTime').textContent = fmtTime(time);
   $('rScore').textContent = score;
   $('rMass').textContent = Math.round(peakMass);
@@ -400,7 +436,7 @@ function playerGain(mass, energy) {
   if (idx > stageIdx) {
     stageIdx = idx;
     const s = STAGES[idx];
-    toast('进化 · ' + s.name, `hsl(${s.hue},${s.sat}%,${s.lit}%)`);
+    toast((idx === STAGES.length - 1 ? '终极进化 · ' : '进化 · ') + s.name, `hsl(${s.hue},${s.sat}%,${s.lit}%)`);
     player.energy = Math.min(100, player.energy + 30);
     burst(player.x, player.y, `hsla(${s.hue},90%,70%,`, 40, 260, player.r * 0.25);
     beep(392, 0.15, 'triangle', 0.08); setTimeout(() => beep(523, 0.15, 'triangle', 0.08), 130);
@@ -408,8 +444,9 @@ function playerGain(mass, energy) {
   }
 }
 
-function playerSpeed() { return 240 * Math.pow(20 / player.r, 0.25); }
-function enemySpeed(e) { return 200 * Math.pow(20 / e.r, 0.25) * (e.hunter ? 1.1 : 0.92); }
+function virusScale() { return 1 + stageIdx * 0.45; }
+function playerSpeed() { return 240 * Math.pow(20 / player.r, 0.2); }
+function enemySpeed(e) { return 200 * Math.pow(20 / e.r, 0.2) * (e.hunter ? 1.1 : 0.92); }
 
 function screenPlayer() {
   return { x: (player.x - cam.x) * cam.zoom + W / 2, y: (player.y - cam.y) * cam.zoom + H / 2 };
@@ -418,6 +455,7 @@ function screenPlayer() {
 function update(dt, active) {
   gt += dt;
   const p = player;
+  foodK = 1 + stageIdx * 0.8;
 
   /* 玩家输入与移动 */
   if (active) {
@@ -443,12 +481,13 @@ function update(dt, active) {
     p.vx += (tvx - p.vx) * k; p.vy += (tvy - p.vy) * k;
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (Math.hypot(p.vx, p.vy) > 12) p.heading = Math.atan2(p.vy, p.vx);
+    p.hd = turnTo(p.hd, p.heading, Math.min(1, dt * 8));
     p.dash = Math.max(0, p.dash - dt); p.dashCd = Math.max(0, p.dashCd - dt);
     p.inv = Math.max(0, p.inv - dt);
     hitTimer = Math.max(0, hitTimer - dt);
 
     // 能量流失、体积缓慢萎缩
-    p.energy -= (2.2 + Math.sqrt(p.mass) * 0.03) * dt;
+    p.energy -= (2.2 + Math.min(2.4, Math.sqrt(p.mass) * 0.02)) * dt;
     if (p.mass > 150) p.mass -= p.mass * 0.004 * dt;
     p.r += (radiusOf(p.mass) - p.r) * Math.min(1, dt * 8);
     comboTimer -= dt; if (comboTimer <= 0) combo = 0;
@@ -466,8 +505,8 @@ function update(dt, active) {
   for (const f of foods) {
     if (active) {
       const d = Math.hypot(f.x - p.x, f.y - p.y);
-      if (d < p.r + f.r) {
-        playerGain(f.m, f.en);
+      if (d < p.r + f.r * Math.sqrt(foodK)) {
+        playerGain(f.m * foodK, f.en * (1 + stageIdx * 0.15));
         combo++; comboTimer = 0.9;
         beep(420 + Math.min(combo, 12) * 45, 0.07, 'sine', 0.045);
         burst(f.x, f.y, `hsla(${f.hue},90%,70%,`, f.rich ? 8 : 3, 90, 3);
@@ -477,7 +516,7 @@ function update(dt, active) {
     }
     for (const e of enemies) {
       if (Math.abs(e.x - f.x) < e.r + f.r && Math.abs(e.y - f.y) < e.r + f.r && Math.hypot(e.x - f.x, e.y - f.y) < e.r) {
-        e.mass = Math.min(3800, e.mass + f.m);
+        e.mass = Math.min(MAX_M, e.mass + f.m * foodK);
         Object.assign(f, makeFood());
         break;
       }
@@ -485,6 +524,7 @@ function update(dt, active) {
   }
 
   /* 病毒 */
+  const vs = virusScale();
   for (const v of viruses) {
     v.x += v.vx * dt; v.y += v.vy * dt; v.rot += dt * 0.4;
     const d = Math.hypot(v.x, v.y);
@@ -495,7 +535,7 @@ function update(dt, active) {
     }
     if (active && p.inv <= 0) {
       const dx = p.x - v.x, dy = p.y - v.y, dist = Math.hypot(dx, dy) || 1;
-      if (dist < p.r * 0.8 + v.r * 0.85) {
+      if (dist < p.r * 0.8 + v.r * vs * 0.85) {
         damagePlayer(22, '被病毒感染致死');
         p.mass = Math.max(60, p.mass * 0.86);
         p.inv = 1.2; shake = 14;
@@ -515,6 +555,7 @@ function update(dt, active) {
     e.vx += (e.dx * sp - e.vx) * k; e.vy += (e.dy * sp - e.vy) * k;
     e.x += e.vx * dt; e.y += e.vy * dt;
     if (Math.hypot(e.vx, e.vy) > 8) e.heading = Math.atan2(e.vy, e.vx);
+    e.hd = turnTo(e.hd, e.heading, Math.min(1, dt * 8));
     e.r += (radiusOf(e.mass) - e.r) * Math.min(1, dt * 8);
     if (e.mass > 400) e.mass -= e.mass * 0.005 * dt;
     const d = Math.hypot(e.x, e.y);
@@ -532,7 +573,7 @@ function update(dt, active) {
     for (let j = 0; j < enemies.length; j++) {
       const b = enemies[j]; if (i === j || b.dead) continue;
       if (a.mass > b.mass * 1.15 && Math.hypot(a.x - b.x, a.y - b.y) < a.r - b.r * 0.3) {
-        a.mass = Math.min(3800, a.mass + b.mass * 0.8); b.dead = true;
+        a.mass = Math.min(MAX_M, a.mass + b.mass * 0.8); b.dead = true;
       }
     }
   }
@@ -661,6 +702,14 @@ function drawCell(x, y, r, c, o) {
   const ph = o.ph;
   ctx.save();
   if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
+  if (o.colony) {
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * 6.2832 + gt * 0.3, cx = x + Math.cos(a) * r * 0.78, cy = y + Math.sin(a) * r * 0.78;
+      ctx.fillStyle = `hsla(${c.h + i * 9},${c.s}%,${c.l}%,0.6)`;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.3, 0, 6.2832); ctx.fill();
+      ctx.lineWidth = Math.max(1, r * 0.03); ctx.strokeStyle = `hsla(${c.h},${c.s}%,${Math.min(90, c.l + 22)}%,0.9)`; ctx.stroke();
+    }
+  }
   ctx.beginPath();
   for (let i = 0; i <= n; i++) {
     const a = i / n * 6.2832;
@@ -721,25 +770,153 @@ function drawCell(x, y, r, c, o) {
   ctx.restore();
 }
 
-function drawVirus(v) {
+function turnTo(cur, target, k) {
+  const d = ((target - cur + Math.PI) % 6.2832 + 6.2832) % 6.2832 - Math.PI;
+  return cur + d * k;
+}
+function stageOf(m) { let idx = 0; for (let i = 0; i < STAGES.length; i++) if (m >= STAGES[i].mass) idx = i; return idx; }
+
+function drawLife(x, y, r, stage, c, o) {
+  if (stage <= 3) drawCell(x, y, r, c, Object.assign({}, o, { cilia: stage >= 2, colony: stage === 3 }));
+  else drawCreature(x, y, r, stage, c, o);
+}
+
+// 鱼类 / 两栖类 / 爬行类 / 哺乳动物（俯视图，局部坐标以 r 为单位，朝向 +x）
+function drawCreature(x, y, r, stage, c, o) {
+  const hd = o.hd !== undefined ? o.hd : o.heading;
+  const t = gt * 7 + o.ph, wag = Math.sin(t);
+  const lw = Math.max(0.04, 1.6 / r);
+  const mid = `hsla(${c.h},${c.s}%,${c.l - 8}%,0.92)`;
+  const dark = `hsla(${c.h},${c.s}%,${c.l - 24}%,0.55)`;
+  const edge = `hsla(${c.h},${c.s}%,${Math.min(92, c.l + 22)}%,0.95)`;
+  const pup = o.angry ? '#d01010' : '#112';
+  ctx.save();
+  if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
+  ctx.translate(x, y); ctx.rotate(hd); ctx.scale(r, r);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = lw;
+
+  const body = () => {
+    const g = ctx.createRadialGradient(-0.25, -0.25, 0.05, 0, 0, 1.1);
+    g.addColorStop(0, `hsla(${c.h},${c.s}%,${Math.min(90, c.l + 16)}%,0.95)`);
+    g.addColorStop(1, `hsla(${c.h},${c.s}%,${c.l - 14}%,0.97)`);
+    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = lw; ctx.strokeStyle = edge; ctx.stroke();
+  };
+  const ell = (cx, cy, rx, ry, rot) => { ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, rot || 0, 0, 6.2832); };
+  const dot = (cx, cy, rr, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 6.2832); ctx.fill(); };
+  const tube = (path, w, col) => {
+    ctx.beginPath(); path(); ctx.lineWidth = w + lw * 2; ctx.strokeStyle = edge; ctx.stroke();
+    ctx.beginPath(); path(); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke();
+    ctx.lineWidth = lw;
+  };
+  const eye = (ex, ey, er) => {
+    dot(ex, ey, er, '#fff'); dot(ex + er * 0.3, ey, er * 0.58, pup);
+  };
+  const lines = (fn, alpha) => { ctx.strokeStyle = dark; ctx.lineWidth = lw; ctx.beginPath(); fn(); ctx.stroke(); };
+
+  if (stage === 4 || stage === 5) {
+    const deep = stage === 4 ? 0.42 : 0.58;
+    // 尾鳍
+    ctx.save(); ctx.translate(-0.9, 0); ctx.rotate(wag * 0.3);
+    ctx.beginPath(); ctx.moveTo(0.2, 0);
+    if (stage === 4) { ctx.quadraticCurveTo(-0.4, -0.5, -0.8, -0.32); ctx.lineTo(-0.8, 0.32); ctx.quadraticCurveTo(-0.4, 0.5, 0.2, 0); }
+    else { ctx.lineTo(-0.75, -0.6); ctx.lineTo(-0.5, 0); ctx.lineTo(-0.75, 0.6); }
+    ctx.closePath(); ctx.fillStyle = mid; ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+    ctx.restore();
+    // 胸鳍
+    for (const sd of [-1, 1]) {
+      ctx.save(); ctx.translate(0.25, sd * deep * 0.95); ctx.rotate(-sd * (0.7 + Math.sin(t + sd) * 0.2));
+      ell(-0.14, 0, 0.34, 0.12); ctx.fillStyle = mid; ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+      ctx.restore();
+    }
+    ell(0, 0, 1.0, deep); body();
+    if (stage === 4) {
+      // 无颌鱼：侧线、鳃孔
+      lines(() => { ctx.moveTo(0.55, -deep * 0.45); ctx.lineTo(-0.75, -deep * 0.3); ctx.moveTo(0.55, deep * 0.45); ctx.lineTo(-0.75, deep * 0.3); });
+      for (let i = 0; i < 4; i++) { dot(0.45 - i * 0.1, -deep * 0.72, 0.03, dark); dot(0.45 - i * 0.1, deep * 0.72, 0.03, dark); }
+    } else {
+      // 鳞片、鳃盖、背脊
+      lines(() => {
+        for (let gx = -0.6; gx < 0.35; gx += 0.24)
+          for (const gy of [-0.32, 0, 0.32]) if ((gx / 1) ** 2 + (gy / 0.58) ** 2 < 0.8) { ctx.moveTo(gx - 0.1, gy - 0.1); ctx.arc(gx - 0.1, gy, 0.11, -1.2, 1.2); }
+        ctx.moveTo(0.5, 0); ctx.arc(0.85, 0, 0.36, Math.PI - 1.0, Math.PI + 1.0);
+      });
+      ctx.strokeStyle = dark; ctx.lineWidth = lw * 3; ctx.beginPath(); ctx.moveTo(0.45, 0); ctx.lineTo(-0.7, 0); ctx.stroke();
+    }
+    eye(0.7, -deep * 0.55, 0.11); eye(0.7, deep * 0.55, 0.11);
+  } else if (stage === 6 || stage === 7) {
+    const rep = stage === 7;
+    const sw = k => Math.sin(t + k) * 0.22;
+    // 四肢
+    for (const [lx, sd, k] of [[0.5, -1, 0], [0.5, 1, Math.PI], [-0.45, -1, Math.PI], [-0.45, 1, 0]]) {
+      const swing = sw(k), reach = rep ? 1.02 : 0.9;
+      tube(() => { ctx.moveTo(lx, sd * 0.3); ctx.lineTo(lx + swing * 0.5 + (rep ? 0.12 : 0), sd * reach * 0.7); ctx.lineTo(lx + swing + (rep ? 0.05 : 0), sd * reach); },
+           rep ? 0.17 : 0.15, mid);
+      dot(lx + swing + (rep ? 0.05 : 0), sd * (reach + 0.05), rep ? 0.1 : 0.12, mid);
+    }
+    // 尾巴
+    const tl = rep ? 1.7 : 1.15;
+    tube(() => { ctx.moveTo(-0.7, 0); ctx.quadraticCurveTo(-0.7 - tl * 0.5, wag * 0.3, -0.7 - tl, Math.sin(t + 1.2) * 0.3); }, rep ? 0.3 : 0.26, mid);
+    ell(0, 0, rep ? 1.0 : 0.9, rep ? 0.44 : 0.5); body();
+    if (rep) {
+      lines(() => { for (let i = 0; i < 7; i++) { const bx = 0.7 - i * 0.24; ctx.moveTo(bx, -0.38); ctx.quadraticCurveTo(bx - 0.1, 0, bx, 0.38); } });
+      for (let i = 0; i < 7; i++) dot(0.7 - i * 0.24 - 0.05, 0, 0.045, dark);
+      // 长吻
+      ell(1.05, 0, 0.5, 0.26); body();
+      dot(1.42, -0.09, 0.03, dark); dot(1.42, 0.09, 0.03, dark);
+      for (const sd of [-1, 1]) { dot(0.96, sd * 0.2, 0.085, '#fff'); ctx.fillStyle = pup; ctx.beginPath(); ctx.ellipse(0.97, sd * 0.2, 0.025, 0.065, 0, 0, 6.2832); ctx.fill(); }
+    } else {
+      for (const [sx, sy, sr] of [[0.3, -0.18, 0.09], [0.0, 0.2, 0.11], [-0.3, -0.12, 0.08], [-0.5, 0.15, 0.09], [0.15, 0.02, 0.07]]) dot(sx, sy, sr, dark);
+      ell(0.88, 0, 0.38, 0.34); body();
+      eye(1.0, -0.27, 0.13); eye(1.0, 0.27, 0.13);
+      lines(() => { ctx.moveTo(1.2, -0.12); ctx.quadraticCurveTo(1.27, 0, 1.2, 0.12); });
+    }
+  } else {
+    // 哺乳动物
+    const sw = k => Math.sin(t * 0.9 + k) * 0.2;
+    tube(() => { ctx.moveTo(-0.8, 0); ctx.quadraticCurveTo(-1.25, wag * 0.35, -1.55, Math.sin(t + 1) * 0.3); }, 0.3, mid);
+    for (const [lx, sd, k] of [[0.55, -1, 0], [0.55, 1, Math.PI], [-0.5, -1, Math.PI], [-0.5, 1, 0]]) {
+      ell(lx + sw(k), sd * 0.66, 0.24, 0.16); ctx.fillStyle = mid; ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+    }
+    ell(0, 0, 0.95, 0.6); body();
+    lines(() => { for (let i = 0; i < 18; i++) { const a = i * 0.7, fx = Math.cos(a) * 0.62, fy = Math.sin(a) * 0.4; ctx.moveTo(fx, fy); ctx.lineTo(fx - 0.09, fy + 0.03); } });
+    // 鬃毛
+    ctx.beginPath();
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * 6.2832, rr = i % 2 ? 0.5 : 0.68;
+      const px = 0.85 + Math.cos(a) * rr, py = Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.fillStyle = `hsla(${c.h - 6},${c.s}%,${c.l - 20}%,0.95)`; ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+    // 耳朵
+    for (const sd of [-1, 1]) { dot(0.68, sd * 0.42, 0.17, mid); dot(0.7, sd * 0.42, 0.09, 'hsla(350,60%,78%,0.9)'); }
+    ctx.beginPath(); ctx.arc(0.88, 0, 0.42, 0, 6.2832); body();
+    ell(1.22, 0, 0.21, 0.16); ctx.fillStyle = `hsla(${c.h},${c.s - 25}%,${Math.min(90, c.l + 26)}%,0.95)`; ctx.fill(); ctx.strokeStyle = edge; ctx.stroke();
+    ell(1.38, 0, 0.06, 0.05); ctx.fillStyle = '#211'; ctx.fill();
+    eye(1.02, -0.2, 0.09); eye(1.02, 0.2, 0.09);
+  }
+  ctx.restore();
+}
+
+function drawVirus(v, sc) {
+  const R = v.r * sc;
   const spikes = 16;
   ctx.beginPath();
   for (let i = 0; i < spikes * 2; i++) {
     const a = i / (spikes * 2) * 6.2832 + v.rot;
-    const rr = i % 2 === 0 ? v.r * 1.28 : v.r * 0.92;
+    const rr = i % 2 === 0 ? R * 1.28 : R * 0.92;
     const px = v.x + Math.cos(a) * rr, py = v.y + Math.sin(a) * rr;
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.closePath();
-  const g = ctx.createRadialGradient(v.x, v.y, v.r * 0.1, v.x, v.y, v.r * 1.2);
+  const g = ctx.createRadialGradient(v.x, v.y, R * 0.1, v.x, v.y, R * 1.2);
   g.addColorStop(0, 'rgba(160,240,60,0.75)'); g.addColorStop(1, 'rgba(60,140,20,0.85)');
   ctx.fillStyle = g; ctx.fill();
   ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,255,120,0.9)'; ctx.stroke();
   ctx.fillStyle = 'rgba(30,70,10,0.6)';
-  ctx.beginPath(); ctx.arc(v.x, v.y, v.r * 0.45, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.arc(v.x, v.y, R * 0.45, 0, 6.2832); ctx.fill();
   ctx.fillStyle = 'rgba(210,255,140,0.8)';
-  ctx.beginPath(); ctx.arc(v.x - v.r * 0.12, v.y - v.r * 0.1, v.r * 0.12, 0, 6.2832); ctx.fill();
-  ctx.beginPath(); ctx.arc(v.x + v.r * 0.14, v.y + v.r * 0.12, v.r * 0.08, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.arc(v.x - R * 0.12, v.y - R * 0.1, R * 0.12, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.arc(v.x + R * 0.14, v.y + R * 0.12, R * 0.08, 0, 6.2832); ctx.fill();
 }
 
 function render() {
@@ -782,25 +959,27 @@ function render() {
 
   // 食物
   for (const f of foods) {
-    if (!vis(f.x, f.y, f.r * 2)) continue;
+    const fr = f.r * Math.sqrt(foodK);
+    if (!vis(f.x, f.y, fr * 2)) continue;
     const pulse = 1 + 0.15 * Math.sin(gt * 3 + f.ph);
     if (f.rich) {
       ctx.fillStyle = 'rgba(255,220,100,0.18)';
-      ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 2.2 * pulse, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(f.x, f.y, fr * 2.2 * pulse, 0, 6.2832); ctx.fill();
     }
     ctx.fillStyle = `hsl(${f.hue},85%,${f.rich ? 68 : 62}%)`;
-    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * pulse, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(f.x, f.y, fr * pulse, 0, 6.2832); ctx.fill();
   }
 
   // 病毒
-  for (const v of viruses) if (vis(v.x, v.y, v.r * 1.4)) drawVirus(v);
+  const vsc = virusScale();
+  for (const v of viruses) if (vis(v.x, v.y, v.r * vsc * 1.4)) drawVirus(v, vsc);
 
   // 敌人（小的在下面）
   const sorted = enemies.slice().sort((a, b) => a.mass - b.mass);
   for (const e of sorted) {
     if (!vis(e.x, e.y, e.r * 1.3)) continue;
     const c = relHue(e.mass);
-    drawCell(e.x, e.y, e.r, c, { ph: e.ph, org: e.org, heading: e.heading, angry: e.mass > player.mass * 1.15 || e.hunter, cilia: e.hunter });
+    drawLife(e.x, e.y, e.r, stageOf(e.mass), c, { ph: e.ph, org: e.org, heading: e.heading, hd: e.hd, angry: e.mass > player.mass * 1.15 || e.hunter });
   }
 
   // 玩家
@@ -815,8 +994,8 @@ function render() {
     const hg = ctx.createRadialGradient(player.x, player.y, player.r, player.x, player.y, player.r * 1.7);
     hg.addColorStop(0, `hsla(${s.hue},90%,65%,0.25)`); hg.addColorStop(1, `hsla(${s.hue},90%,65%,0)`);
     ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(player.x, player.y, player.r * 1.7, 0, 6.2832); ctx.fill();
-    drawCell(player.x, player.y, player.r, { h: s.hue, s: s.sat, l: s.lit }, {
-      ph: player.ph, org: player.org, heading: player.heading, cilia: stageIdx >= 2, alpha: blink ? 0.45 : 1 });
+    drawLife(player.x, player.y, player.r, stageIdx, { h: s.hue, s: s.sat, l: s.lit }, {
+      ph: player.ph, org: player.org, heading: player.heading, hd: player.hd, alpha: blink ? 0.45 : 1 });
   }
 
   // 粒子
@@ -878,15 +1057,54 @@ function updateHUD() {
   $('killTxt').textContent = kills;
   $('scoreTxt').textContent = calcScore();
   $('best').textContent = '最高分 ' + bestScore;
+  const nx = STAGES[stageIdx + 1];
+  if (nx) {
+    const base = s.mass, pct = clamp((peakMass - base) / (nx.mass - base), 0, 1) * 100;
+    $('evoLabel').textContent = '进化 → ' + nx.name; $('evoPct').textContent = Math.floor(pct) + '%'; $('evoBar').style.width = pct + '%';
+  } else { $('evoLabel').textContent = '已进化到顶点'; $('evoPct').textContent = '100%'; $('evoBar').style.width = '100%'; }
   $('dashcd').style.height = (p.dashCd > 0 ? (p.dashCd / 1.4 * 100) : 0) + '%';
 }
+
+/* ---------- 控制台 / 作弊码 ---------- */
+function conPrint(msg, cls) {
+  const d = document.createElement('div'); d.textContent = msg; if (cls) d.className = cls;
+  conLog.appendChild(d);
+  while (conLog.children.length > 30) conLog.removeChild(conLog.firstChild);
+  conLog.scrollTop = conLog.scrollHeight;
+}
+function openConsole() {
+  if (conOpen) return;
+  conOpen = true; conEl.classList.add('show');
+  for (const k in keys) keys[k] = false;
+  conIn.value = '';
+  if (!conLog.children.length) conPrint('作弊控制台 · 输入 help 查看指令', 'dim');
+  conIn.focus(); setTimeout(() => conIn.focus(), 0);
+}
+function closeConsole() { conOpen = false; conEl.classList.remove('show'); conIn.blur(); }
+function runCommand(text) {
+  const cmd = text.trim().toLowerCase();
+  if (!cmd) return;
+  conPrint('> ' + cmd);
+  if (cmd === 'sj') {
+    if (state !== 'play') { conPrint('游戏尚未开始', 'bad'); return; }
+    if (stageIdx >= STAGES.length - 1) { conPrint('已经是最终形态：' + STAGES[stageIdx].name, 'bad'); return; }
+    cheated = true;
+    playerGain(Math.max(0, STAGES[stageIdx + 1].mass - player.mass), 0);
+    conPrint('作弊生效 → 进化为「' + STAGES[stageIdx].name + '」（本局成绩不计入最高分）', 'ok');
+  } else if (cmd === 'help') {
+    conPrint('sj    升级一个种类', 'dim'); conPrint('clear 清屏', 'dim'); conPrint('exit  关闭控制台', 'dim');
+  } else if (cmd === 'clear') { conLog.textContent = ''; }
+  else if (cmd === 'exit') { closeConsole(); }
+  else conPrint('未知指令：' + cmd + '（输入 help 查看）', 'bad');
+}
+$('conBtn').onclick = () => { audioInit(); if (conOpen) closeConsole(); else openConsole(); };
 
 /* ---------- 主循环 ---------- */
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (state === 'play') update(dt, true);
+  if (state === 'play') { if (!conOpen) update(dt, true); }
   else if (state === 'menu') update(dt, false);
   else if (state === 'over') update(dt, false);
   render();
