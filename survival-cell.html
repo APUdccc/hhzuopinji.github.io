@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>求生细胞</title>
+<style>
+  :root {
+    --bg: #04080c;
+    --panel: rgba(8, 20, 28, 0.72);
+    --line: rgba(120, 220, 255, 0.22);
+    --text: #dff6ff;
+    --dim: #86a8b6;
+    --good: #5dffa8;
+    --warn: #ffd166;
+    --bad: #ff5d6c;
+    --accent: #5ee7ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas#c { position: fixed; inset: 0; display: block; cursor: crosshair; }
+
+  .hud { position: fixed; pointer-events: none; z-index: 5; }
+  #hud-left { top: 14px; left: 14px; width: min(260px, 60vw); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px 14px; backdrop-filter: blur(6px); }
+  #stage { font-size: 16px; font-weight: 700; letter-spacing: 1px; margin-bottom: 8px; }
+  .bar { height: 10px; border-radius: 6px; background: rgba(255,255,255,0.09); overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 100%; border-radius: 6px; background: var(--good); transition: background .2s; }
+  .barlabel { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); margin: 0 0 4px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 10px; font-size: 13px; color: var(--dim); }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  #hud-right { top: 14px; right: 14px; display: flex; gap: 8px; pointer-events: auto; }
+  .ibtn { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 10px;
+    height: 38px; min-width: 38px; padding: 0 12px; font-size: 14px; cursor: pointer; backdrop-filter: blur(6px); }
+  .ibtn:hover { border-color: var(--accent); }
+  #best { align-self: center; font-size: 12px; color: var(--dim); margin-right: 4px; }
+
+  #dashbtn { right: 18px; bottom: 22px; width: 84px; height: 84px; border-radius: 50%; pointer-events: auto;
+    background: var(--panel); border: 2px solid var(--accent); color: var(--text); font-size: 15px; font-weight: 700;
+    display: none; align-items: center; justify-content: center; overflow: hidden; }
+  #dashbtn .cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(0,0,0,0.55); }
+  #dashbtn span { position: relative; }
+  body.touch #dashbtn { display: flex; }
+
+  #minimap { left: 14px; bottom: 14px; width: 128px; height: 128px; border-radius: 50%;
+    border: 1px solid var(--line); background: rgba(6, 18, 26, 0.7); }
+  #hint { left: 50%; bottom: 12px; transform: translateX(-50%); font-size: 12px; color: var(--dim); text-align: center;
+    white-space: nowrap; transition: opacity 1s; }
+  #toast { left: 50%; top: 22%; transform: translateX(-50%); font-size: clamp(22px, 5vw, 40px); font-weight: 800;
+    letter-spacing: 3px; text-shadow: 0 0 18px currentColor; opacity: 0; transition: opacity .5s; text-align: center; }
+  #toast.show { opacity: 1; }
+
+  .overlay { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(4,12,18,0.55), rgba(2,6,10,0.9)); padding: 16px; }
+  .overlay.show { display: flex; }
+  .card { width: min(520px, 100%); max-height: 100%; overflow: auto; background: rgba(8, 22, 30, 0.9);
+    border: 1px solid var(--line); border-radius: 18px; padding: 28px 26px; text-align: center;
+    box-shadow: 0 0 60px rgba(94, 231, 255, 0.12); }
+  .card h1 { font-size: clamp(34px, 8vw, 48px); letter-spacing: 6px; color: var(--accent); text-shadow: 0 0 22px rgba(94,231,255,.5); }
+  .card h2 { font-size: 30px; letter-spacing: 3px; margin-bottom: 4px; }
+  .card p.sub { color: var(--dim); margin: 8px 0 18px; font-size: 14px; line-height: 1.6; }
+  .rules { text-align: left; font-size: 13.5px; line-height: 1.9; color: #c4dde6; margin: 0 auto 20px; max-width: 420px; }
+  .rules li { list-style: none; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: baseline; }
+  .btn { background: linear-gradient(135deg, #2bd9c0, #3aa4ff); color: #03141c; border: 0; border-radius: 12px;
+    padding: 13px 38px; font-size: 18px; font-weight: 800; letter-spacing: 3px; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0 22px; }
+  .result div { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; font-size: 12px; color: var(--dim); }
+  .result b { display: block; font-size: 22px; color: var(--text); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #newbest { color: var(--warn); font-weight: 700; height: 20px; margin-top: -8px; margin-bottom: 8px; }
+  @media (max-width: 560px) { #minimap { width: 96px; height: 96px; } #hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud-left" class="hud">
+  <div id="stage">原核细胞</div>
+  <div class="barlabel"><span>能量</span><span id="energyTxt">100</span></div>
+  <div class="bar"><i id="energyBar"></i></div>
+  <div class="stats">
+    <div>体积 <b id="massTxt">100</b></div>
+    <div>存活 <b id="timeTxt">0:00</b></div>
+    <div>吞噬 <b id="killTxt">0</b></div>
+    <div>得分 <b id="scoreTxt">0</b></div>
+  </div>
+</div>
+
+<div id="hud-right" class="hud">
+  <span id="best">最高分 0</span>
+  <button class="ibtn" id="muteBtn" title="静音 (M)">🔊</button>
+  <button class="ibtn" id="pauseBtn" title="暂停 (P)">⏸</button>
+</div>
+
+<canvas id="minimap" class="hud" width="256" height="256"></canvas>
+<div id="dashbtn" class="hud"><div class="cd" id="dashcd"></div><span>冲刺</span></div>
+<div id="hint" class="hud">鼠标 / WASD 移动 · 空格或右键冲刺 · P 暂停 · M 静音</div>
+<div id="toast" class="hud"></div>
+
+<div id="menu" class="overlay show">
+  <div class="card">
+    <h1>求生细胞</h1>
+    <p class="sub">你是培养皿里一颗刚诞生的原核细胞。<br>吞噬养分、避开天敌，一步步进化，活下去。</p>
+    <ul class="rules">
+      <li><span class="dot" style="background:#5dffa8"></span>绿色细胞比你小，可以吞噬它们变大</li>
+      <li><span class="dot" style="background:#ffd166"></span>黄色细胞和你差不多大，互相推挤</li>
+      <li><span class="dot" style="background:#ff5d6c"></span>红色细胞比你大，被咬会掉能量，被整个吞下就死亡</li>
+      <li><span class="dot" style="background:#9be04b"></span>带刺的病毒会重创你，一定要绕开</li>
+      <li><span class="dot" style="background:#ffe27a"></span>能量会不断流失，吃养分补充，归零即饿死</li>
+    </ul>
+    <button class="btn" id="startBtn">开始求生</button>
+  </div>
+</div>
+
+<div id="pause" class="overlay">
+  <div class="card">
+    <h2>已暂停</h2>
+    <p class="sub">按 P / Esc 或点击继续</p>
+    <button class="btn" id="resumeBtn">继续</button>
+  </div>
+</div>
+
+<div id="over" class="overlay">
+  <div class="card">
+    <h2 id="overTitle">细胞死亡</h2>
+    <p class="sub" id="overReason"></p>
+    <div id="newbest"></div>
+    <div class="result">
+      <div>存活时间<b id="rTime">0:00</b></div>
+      <div>最终得分<b id="rScore">0</b></div>
+      <div>最大体积<b id="rMass">0</b></div>
+      <div>进化阶段<b id="rStage">-</b></div>
+      <div>吞噬细胞<b id="rKills">0</b></div>
+      <div>最高分<b id="rBest">0</b></div>
+    </div>
+    <button class="btn" id="againBtn">再来一次</button>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- 基础设置 ---------- */
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const mm = document.getElementById('minimap');
+const mctx = mm.getContext('2d');
+const $ = id => document.getElementById(id);
+
+const WORLD_R = 2000;                  // 培养皿半径
+const FOOD_COUNT = 380;
+const VIRUS_COUNT = 14;
+const STAGES = [
+  { name: '原核细胞',   mass: 0,    hue: 145, sat: 80, lit: 55 },
+  { name: '真核细胞',   mass: 220,  hue: 190, sat: 85, lit: 58 },
+  { name: '纤毛虫',     mass: 550,  hue: 265, sat: 80, lit: 68 },
+  { name: '变形虫',     mass: 1200, hue: 42,  sat: 90, lit: 60 },
+  { name: '多细胞群落', mass: 2600, hue: 335, sat: 85, lit: 68 },
+  { name: '终极生命',   mass: 5000, hue: 55,  sat: 95, lit: 78 },
+];
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const radiusOf = m => 2 * Math.sqrt(m);
+
+/* ---------- 存档 ---------- */
+let bestScore = 0;
+try { bestScore = parseInt(localStorage.getItem('survivalCellBest') || '0', 10) || 0; } catch (e) {}
+function saveBest() { try { localStorage.setItem('survivalCellBest', String(bestScore)); } catch (e) {} }
+
+/* ---------- 音效 ---------- */
+let actx = null, muted = false;
+function audioInit() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+}
+function beep(freq, dur, type = 'sine', vol = 0.06, slide = 0) {
+  if (!actx || muted) return;
+  const t0 = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t0);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq + slide), t0 + dur);
+  g.gain.setValueAtTime(vol, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+
+/* ---------- 游戏状态 ---------- */
+let state = 'menu';      // menu | play | pause | over
+let player, foods, viruses, enemies, parts;
+let time, kills, peakMass, spawnTimer, combo, comboTimer, hitTimer, hitCause, shake, stageIdx;
+const cam = { x: 0, y: 0, zoom: 1 };
+let bokeh = [];
+let gt = 0;               // 全局动画时间
+
+function randInDish(margin = 60) {
+  const a = Math.random() * Math.PI * 2;
+  const r = (WORLD_R - margin) * Math.sqrt(Math.random());
+  return { x: Math.cos(a) * r, y: Math.sin(a) * r };
+}
+
+function makeOrganelles(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) arr.push({ a: Math.random() * 6.283, d: rand(0.25, 0.72), s: rand(0.05, 0.1), h: rand(-30, 30) });
+  return arr;
+}
+
+function makeFood() {
+  const p = randInDish();
+  const rich = Math.random() < 0.05;
+  return { x: p.x, y: p.y, rich, r: rich ? 8 : rand(3.5, 5.5), m: rich ? 14 : 4, en: rich ? 12 : 2.6,
+           hue: rich ? 48 : rand(80, 200), ph: Math.random() * 6.28 };
+}
+
+function makeVirus() {
+  const p = randInDish(120);
+  const a = Math.random() * 6.283, s = rand(4, 14);
+  return { x: p.x, y: p.y, r: rand(26, 40), vx: Math.cos(a) * s, vy: Math.sin(a) * s, rot: Math.random() * 6.28 };
+}
+
+function viewRadius() { return Math.hypot(W, H) / 2 / cam.zoom; }
+
+function spawnEnemy(anywhere) {
+  const diff = Math.min(1, time / 240);
+  let mass, hunter = false;
+  const f = 0.3 + Math.pow(Math.random(), 1.3 - 0.5 * diff) * (1.0 + 1.0 * Math.min(1, time / 30));
+  mass = clamp(player.mass * f, 30, 3600);
+  if (time > 25 && Math.random() < 0.08 + 0.2 * diff) {
+    hunter = true;
+    mass = clamp(player.mass * rand(1.25, 1.85), 60, 3800);
+  }
+  let pos = null;
+  for (let i = 0; i < 12 && !pos; i++) {
+    let c;
+    if (anywhere) c = randInDish(80);
+    else {
+      const a = Math.random() * 6.283, d = viewRadius() * 1.1 + rand(80, 600);
+      c = { x: player.x + Math.cos(a) * d, y: player.y + Math.sin(a) * d };
+    }
+    if (Math.hypot(c.x, c.y) < WORLD_R - 80 && (!anywhere || Math.hypot(c.x - player.x, c.y - player.y) > 500)) pos = c;
+  }
+  if (!pos) return;
+  enemies.push({
+    x: pos.x, y: pos.y, vx: 0, vy: 0, mass, r: radiusOf(mass), hunter,
+    dx: 0, dy: 0, boost: 1, think: Math.random() * 0.3, wa: Math.random() * 6.28,
+    heading: Math.random() * 6.28, ph: Math.random() * 6.28, org: makeOrganelles(5)
+  });
+}
+
+function newGame() {
+  player = { x: 0, y: 0, vx: 0, vy: 0, mass: 100, r: radiusOf(100), energy: 100,
+             heading: 0, dash: 0, dashCd: 0, inv: 0, ph: 0, org: makeOrganelles(6), dirx: 1, diry: 0 };
+  foods = []; viruses = []; enemies = []; parts = [];
+  for (let i = 0; i < FOOD_COUNT; i++) foods.push(makeFood());
+  for (let i = 0; i < VIRUS_COUNT; i++) {
+    const v = makeVirus();
+    if (Math.hypot(v.x, v.y) < 350) { v.x += 500; }
+    viruses.push(v);
+  }
+  time = 0; kills = 0; peakMass = 100; spawnTimer = 0; combo = 0; comboTimer = 0;
+  hitTimer = 0; hitCause = ''; shake = 0; stageIdx = 0;
+  cam.x = 0; cam.y = 0; cam.zoom = 1.1;
+  for (let i = 0; i < 16; i++) spawnEnemy(true);
+  bokeh = [];
+  for (let i = 0; i < 28; i++) bokeh.push({ x: Math.random(), y: Math.random(), r: rand(6, 26), s: rand(0.002, 0.008), a: rand(0.03, 0.08) });
+}
+
+/* ---------- 输入 ---------- */
+const keys = {};
+const ptr = { x: 0, y: 0, active: false };
+let isTouch = false;
+
+window.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+  audioInit();
+  if (e.repeat) { keys[e.code] = true; return; }
+  keys[e.code] = true;
+  if (e.code === 'Space') {
+    if (state === 'menu') startGame();
+    else if (state === 'over') startGame();
+    else tryDash();
+  } else if (e.code === 'Enter') {
+    if (state === 'menu' || state === 'over') startGame();
+    else if (state === 'pause') togglePause();
+  } else if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+  else if (e.code === 'KeyM') toggleMute();
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') togglePause(); });
+
+cv.addEventListener('pointermove', e => {
+  ptr.x = e.clientX; ptr.y = e.clientY; ptr.active = true;
+});
+cv.addEventListener('pointerdown', e => {
+  audioInit();
+  isTouch = e.pointerType === 'touch';
+  if (isTouch) document.body.classList.add('touch');
+  ptr.x = e.clientX; ptr.y = e.clientY; ptr.active = true;
+  if (e.button === 2) tryDash();
+});
+const endPtr = e => { if (e.pointerType === 'touch') ptr.active = false; };
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+$('dashbtn').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); audioInit(); tryDash(); });
+
+function tryDash() {
+  if (state !== 'play') return;
+  if (player.dashCd > 0 || player.energy < 10) return;
+  player.dash = 0.32; player.dashCd = 1.4; player.energy -= 6;
+  burst(player.x, player.y, 'hsla(190,90%,75%,', 10, 140, player.r * 0.3);
+  beep(300, 0.18, 'sawtooth', 0.05, 500);
+}
+
+/* ---------- 粒子与提示 ---------- */
+function burst(x, y, colPrefix, n, speed, size) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.283, s = rand(0.3, 1) * speed;
+    parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.4, 0.9), max: 0.9,
+                 col: colPrefix, size: rand(0.4, 1) * (size || 4) });
+  }
+}
+let toastTimer = 0;
+function toast(msg, color) {
+  const t = $('toast');
+  t.textContent = msg; t.style.color = color || '#fff'; t.classList.add('show');
+  toastTimer = 2.2;
+}
+
+/* ---------- 流程控制 ---------- */
+function startGame() {
+  audioInit();
+  newGame();
+  state = 'play';
+  $('menu').classList.remove('show'); $('over').classList.remove('show'); $('pause').classList.remove('show');
+  $('hint').style.opacity = 1;
+  setTimeout(() => { $('hint').style.opacity = 0.35; }, 6000);
+  $('pauseBtn').textContent = '⏸';
+}
+function togglePause() {
+  if (state === 'play') { state = 'pause'; $('pause').classList.add('show'); $('pauseBtn').textContent = '▶'; }
+  else if (state === 'pause') { state = 'play'; $('pause').classList.remove('show'); $('pauseBtn').textContent = '⏸'; }
+}
+function toggleMute() { muted = !muted; $('muteBtn').textContent = muted ? '🔇' : '🔊'; }
+$('startBtn').onclick = startGame;
+$('againBtn').onclick = startGame;
+$('resumeBtn').onclick = togglePause;
+$('pauseBtn').onclick = () => { if (state === 'play' || state === 'pause') togglePause(); };
+$('muteBtn').onclick = () => { audioInit(); toggleMute(); };
+
+function calcScore() { return Math.floor(time * 5 + peakMass / 2 + kills * 20); }
+
+function die(reason) {
+  if (state !== 'play') return;
+  state = 'over';
+  burst(player.x, player.y, 'hsla(0,90%,65%,', 40, 320, player.r * 0.35);
+  beep(220, 0.7, 'sawtooth', 0.09, -180);
+  const score = calcScore();
+  const isBest = score > bestScore;
+  if (isBest) { bestScore = score; saveBest(); }
+  $('overReason').textContent = reason;
+  $('newbest').textContent = isBest ? '🏆 新纪录！' : '';
+  $('rTime').textContent = fmtTime(time);
+  $('rScore').textContent = score;
+  $('rMass').textContent = Math.round(peakMass);
+  $('rStage').textContent = STAGES[stageIdx].name;
+  $('rKills').textContent = kills;
+  $('rBest').textContent = bestScore;
+  setTimeout(() => { if (state === 'over') $('over').classList.add('show'); }, 900);
+}
+function fmtTime(s) { s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+/* ---------- 更新逻辑 ---------- */
+function damagePlayer(amount, cause) {
+  player.energy -= amount;
+  hitTimer = 1.5; hitCause = cause;
+}
+
+function playerGain(mass, energy) {
+  player.mass += mass;
+  player.energy = Math.min(100, player.energy + energy);
+  if (player.mass > peakMass) peakMass = player.mass;
+  let idx = 0;
+  for (let i = 0; i < STAGES.length; i++) if (peakMass >= STAGES[i].mass) idx = i;
+  if (idx > stageIdx) {
+    stageIdx = idx;
+    const s = STAGES[idx];
+    toast('进化 · ' + s.name, `hsl(${s.hue},${s.sat}%,${s.lit}%)`);
+    player.energy = Math.min(100, player.energy + 30);
+    burst(player.x, player.y, `hsla(${s.hue},90%,70%,`, 40, 260, player.r * 0.25);
+    beep(392, 0.15, 'triangle', 0.08); setTimeout(() => beep(523, 0.15, 'triangle', 0.08), 130);
+    setTimeout(() => beep(784, 0.3, 'triangle', 0.08), 260);
+  }
+}
+
+function playerSpeed() { return 240 * Math.pow(20 / player.r, 0.25); }
+function enemySpeed(e) { return 200 * Math.pow(20 / e.r, 0.25) * (e.hunter ? 1.1 : 0.92); }
+
+function screenPlayer() {
+  return { x: (player.x - cam.x) * cam.zoom + W / 2, y: (player.y - cam.y) * cam.zoom + H / 2 };
+}
+
+function update(dt, active) {
+  gt += dt;
+  const p = player;
+
+  /* 玩家输入与移动 */
+  if (active) {
+    time += dt;
+    let dx = 0, dy = 0, mag = 0;
+    if (keys.KeyW || keys.ArrowUp) dy -= 1;
+    if (keys.KeyS || keys.ArrowDown) dy += 1;
+    if (keys.KeyA || keys.ArrowLeft) dx -= 1;
+    if (keys.KeyD || keys.ArrowRight) dx += 1;
+    if (dx || dy) { const l = Math.hypot(dx, dy); dx /= l; dy /= l; mag = 1; }
+    else if (ptr.active) {
+      const sp = screenPlayer();
+      const vx = ptr.x - sp.x, vy = ptr.y - sp.y, d = Math.hypot(vx, vy);
+      if (d > 6) { dx = vx / d; dy = vy / d; mag = clamp((d - 6) / 90, 0, 1); }
+    }
+    if (mag > 0) { p.dirx = dx; p.diry = dy; }
+    const dashing = p.dash > 0;
+    let sp = playerSpeed();
+    let tvx, tvy;
+    if (dashing) { tvx = p.dirx * sp * 2.7; tvy = p.diry * sp * 2.7; }
+    else { tvx = dx * sp * mag; tvy = dy * sp * mag; }
+    const k = 1 - Math.exp(-dt * (dashing ? 14 : 6));
+    p.vx += (tvx - p.vx) * k; p.vy += (tvy - p.vy) * k;
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (Math.hypot(p.vx, p.vy) > 12) p.heading = Math.atan2(p.vy, p.vx);
+    p.dash = Math.max(0, p.dash - dt); p.dashCd = Math.max(0, p.dashCd - dt);
+    p.inv = Math.max(0, p.inv - dt);
+    hitTimer = Math.max(0, hitTimer - dt);
+
+    // 能量流失、体积缓慢萎缩
+    p.energy -= (2.2 + Math.sqrt(p.mass) * 0.03) * dt;
+    if (p.mass > 150) p.mass -= p.mass * 0.004 * dt;
+    p.r += (radiusOf(p.mass) - p.r) * Math.min(1, dt * 8);
+    comboTimer -= dt; if (comboTimer <= 0) combo = 0;
+
+    // 边界
+    const dd = Math.hypot(p.x, p.y);
+    if (dd > WORLD_R - p.r * 0.5) {
+      const nx = p.x / dd, ny = p.y / dd, lim = WORLD_R - p.r * 0.5;
+      p.x = nx * lim; p.y = ny * lim;
+      const vn = p.vx * nx + p.vy * ny; if (vn > 0) { p.vx -= vn * nx; p.vy -= vn * ny; }
+    }
+  }
+
+  /* 食物 */
+  for (const f of foods) {
+    if (active) {
+      const d = Math.hypot(f.x - p.x, f.y - p.y);
+      if (d < p.r + f.r) {
+        playerGain(f.m, f.en);
+        combo++; comboTimer = 0.9;
+        beep(420 + Math.min(combo, 12) * 45, 0.07, 'sine', 0.045);
+        burst(f.x, f.y, `hsla(${f.hue},90%,70%,`, f.rich ? 8 : 3, 90, 3);
+        Object.assign(f, makeFood());
+        continue;
+      }
+    }
+    for (const e of enemies) {
+      if (Math.abs(e.x - f.x) < e.r + f.r && Math.abs(e.y - f.y) < e.r + f.r && Math.hypot(e.x - f.x, e.y - f.y) < e.r) {
+        e.mass = Math.min(3800, e.mass + f.m);
+        Object.assign(f, makeFood());
+        break;
+      }
+    }
+  }
+
+  /* 病毒 */
+  for (const v of viruses) {
+    v.x += v.vx * dt; v.y += v.vy * dt; v.rot += dt * 0.4;
+    const d = Math.hypot(v.x, v.y);
+    if (d > WORLD_R - v.r) {
+      const nx = v.x / d, ny = v.y / d;
+      v.x = nx * (WORLD_R - v.r); v.y = ny * (WORLD_R - v.r);
+      const vn = v.vx * nx + v.vy * ny; v.vx -= 2 * vn * nx; v.vy -= 2 * vn * ny;
+    }
+    if (active && p.inv <= 0) {
+      const dx = p.x - v.x, dy = p.y - v.y, dist = Math.hypot(dx, dy) || 1;
+      if (dist < p.r * 0.8 + v.r * 0.85) {
+        damagePlayer(22, '被病毒感染致死');
+        p.mass = Math.max(60, p.mass * 0.86);
+        p.inv = 1.2; shake = 14;
+        p.vx += dx / dist * 520; p.vy += dy / dist * 520;
+        burst(p.x, p.y, 'hsla(95,80%,55%,', 16, 220, 5);
+        beep(160, 0.3, 'square', 0.07, -60);
+      }
+    }
+  }
+
+  /* 敌方细胞 */
+  for (const e of enemies) {
+    e.think -= dt;
+    if (e.think <= 0) { e.think = 0.25 + Math.random() * 0.2; enemyThink(e, active); }
+    const sp = enemySpeed(e) * e.boost;
+    const k = 1 - Math.exp(-dt * 4);
+    e.vx += (e.dx * sp - e.vx) * k; e.vy += (e.dy * sp - e.vy) * k;
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    if (Math.hypot(e.vx, e.vy) > 8) e.heading = Math.atan2(e.vy, e.vx);
+    e.r += (radiusOf(e.mass) - e.r) * Math.min(1, dt * 8);
+    if (e.mass > 400) e.mass -= e.mass * 0.005 * dt;
+    const d = Math.hypot(e.x, e.y);
+    if (d > WORLD_R - e.r * 0.5) {
+      const nx = e.x / d, ny = e.y / d, lim = WORLD_R - e.r * 0.5;
+      e.x = nx * lim; e.y = ny * lim;
+      const vn = e.vx * nx + e.vy * ny; if (vn > 0) { e.vx -= vn * nx; e.vy -= vn * ny; }
+      e.wa += Math.PI;
+    }
+  }
+
+  // 敌方互相吞噬
+  for (let i = 0; i < enemies.length; i++) {
+    const a = enemies[i]; if (a.dead) continue;
+    for (let j = 0; j < enemies.length; j++) {
+      const b = enemies[j]; if (i === j || b.dead) continue;
+      if (a.mass > b.mass * 1.15 && Math.hypot(a.x - b.x, a.y - b.y) < a.r - b.r * 0.3) {
+        a.mass = Math.min(3800, a.mass + b.mass * 0.8); b.dead = true;
+      }
+    }
+  }
+
+  /* 玩家与敌人碰撞 */
+  if (active) {
+    for (const e of enemies) {
+      if (e.dead) continue;
+      const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
+      if (d > p.r + e.r) continue;
+      if (p.mass > e.mass * 1.15) {
+        if (d < p.r - e.r * 0.35) {
+          e.dead = true; kills++;
+          playerGain(e.mass * 0.8, clamp(8 + e.mass * 0.05, 8, 30));
+          burst(e.x, e.y, 'hsla(140,90%,65%,', 18, 200, e.r * 0.2);
+          beep(180, 0.2, 'triangle', 0.09, 400);
+          shake = Math.max(shake, 4);
+        }
+      } else if (e.mass > p.mass * 1.15) {
+        if (e.mass > p.mass * 1.4 && d < e.r - p.r * 0.7) {
+          p.energy = 0; hitCause = '被吞噬了';
+          die('你被更大的细胞整个吞掉了');
+        } else if (d < e.r + p.r * 0.85) {
+          damagePlayer(38 * dt, '被撕咬致死');
+          p.mass = Math.max(50, p.mass * (1 - 0.06 * dt));
+          p.vx += dx / d * 500 * dt * 3; p.vy += dy / d * 500 * dt * 3;
+          shake = Math.max(shake, 6);
+          if (Math.random() < dt * 8) burst(p.x + dx / d * -p.r * 0.5, p.y + dy / d * -p.r * 0.5, 'hsla(0,90%,65%,', 3, 120, 3);
+        }
+      } else {
+        const push = (p.r + e.r - d) * 0.5;
+        p.x += dx / d * push * 0.5; p.y += dy / d * push * 0.5;
+        e.x -= dx / d * push * 0.5; e.y -= dy / d * push * 0.5;
+      }
+    }
+  }
+
+  // 清理与补充
+  const vr = viewRadius();
+  enemies = enemies.filter(e => {
+    if (e.dead) return false;
+    const off = Math.hypot(e.x - p.x, e.y - p.y) - e.r > vr * 1.2;
+    if (off && (e.mass < p.mass * 0.12 || e.mass > p.mass * 4)) return false;
+    return true;
+  });
+  const target = 16 + Math.floor(Math.min(12, time / 20));
+  spawnTimer -= dt;
+  if (enemies.length < target && spawnTimer <= 0) { spawnEnemy(false); spawnTimer = 0.5; }
+
+  /* 粒子 */
+  for (const q of parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.95; q.vy *= 0.95; q.life -= dt; }
+  parts = parts.filter(q => q.life > 0);
+
+  /* 死亡判定 */
+  if (active && state === 'play' && p.energy <= 0) {
+    p.energy = 0;
+    die(hitTimer > 0 && hitCause ? hitCause : '能量耗尽，细胞饿死了');
+  }
+
+  /* 摄像机 */
+  shake = Math.max(0, shake - dt * 30);
+  const tz = clamp(1.15 * Math.pow(20 / p.r, 0.35), 0.32, 1.25) * clamp(Math.min(W, H) / 760, 0.7, 1.1);
+  cam.zoom += (tz - cam.zoom) * Math.min(1, dt * 2.5);
+  cam.x += (p.x - cam.x) * Math.min(1, dt * 8);
+  cam.y += (p.y - cam.y) * Math.min(1, dt * 8);
+
+  if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) $('toast').classList.remove('show'); }
+}
+
+function enemyThink(e, active) {
+  const p = player;
+  const vision = 380 + e.r * 3;
+  let fx = 0, fy = 0, mode = 0;   // 逃跑向量
+  let tx = null, ty = null;       // 追击目标
+  let bestD = 1e9;
+
+  // 逃离更大的细胞
+  if (active && p.mass > e.mass * 1.15) {
+    const d = Math.hypot(p.x - e.x, p.y - e.y);
+    if (d < vision) { fx += (e.x - p.x) / d * 2; fy += (e.y - p.y) / d * 2; mode = 1; }
+  }
+  for (const o of enemies) {
+    if (o === e || o.dead) continue;
+    const d = Math.hypot(o.x - e.x, o.y - e.y);
+    if (d > vision) continue;
+    if (o.mass > e.mass * 1.15) { fx += (e.x - o.x) / d; fy += (e.y - o.y) / d; mode = 1; }
+    else if (e.mass > o.mass * 1.15 && d < bestD) { bestD = d; tx = o.x; ty = o.y; }
+  }
+  if (mode === 1) { const l = Math.hypot(fx, fy) || 1; e.dx = fx / l; e.dy = fy / l; e.boost = 1.12; return; }
+
+  // 追击玩家
+  if (active && e.mass > p.mass * 1.1) {
+    const d = Math.hypot(p.x - e.x, p.y - e.y);
+    if (d < (e.hunter ? 950 : vision * 0.8)) { tx = p.x; ty = p.y; bestD = 0; }
+  }
+  if (tx !== null) {
+    const l = Math.hypot(tx - e.x, ty - e.y) || 1;
+    e.dx = (tx - e.x) / l; e.dy = (ty - e.y) / l; e.boost = 1.05; return;
+  }
+
+  // 寻找食物
+  let fd = 240, fbest = null;
+  for (const f of foods) {
+    const d = Math.abs(f.x - e.x) + Math.abs(f.y - e.y);
+    if (d < fd) { fd = d; fbest = f; }
+  }
+  if (fbest) {
+    const l = Math.hypot(fbest.x - e.x, fbest.y - e.y) || 1;
+    e.dx = (fbest.x - e.x) / l; e.dy = (fbest.y - e.y) / l; e.boost = 0.9; return;
+  }
+  // 漫游
+  e.wa += rand(-0.9, 0.9);
+  e.dx = Math.cos(e.wa) * 0.6; e.dy = Math.sin(e.wa) * 0.6; e.boost = 0.8;
+}
+
+/* ---------- 绘制 ---------- */
+function relHue(m) {
+  const ratio = m / player.mass;
+  if (ratio < 0.87) return { h: 145, s: 75, l: 52 };
+  if (ratio <= 1.15) return { h: 50, s: 90, l: 58 };
+  return { h: 2, s: 85, l: 58 };
+}
+
+function drawCell(x, y, r, c, o) {
+  const n = 34;
+  const ph = o.ph;
+  ctx.save();
+  if (o.alpha !== undefined) ctx.globalAlpha = o.alpha;
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const a = i / n * 6.2832;
+    const w = 1 + 0.03 * Math.sin(a * 3 + gt * 2.2 + ph) + 0.02 * Math.sin(a * 5 - gt * 3 + ph * 2);
+    const px = x + Math.cos(a) * r * w, py = y + Math.sin(a) * r * w;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  const g = ctx.createRadialGradient(x - r * 0.25, y - r * 0.3, r * 0.1, x, y, r);
+  g.addColorStop(0, `hsla(${c.h},${c.s}%,${Math.min(90, c.l + 14)}%,0.55)`);
+  g.addColorStop(1, `hsla(${c.h},${c.s}%,${c.l - 12}%,0.82)`);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = Math.max(1.5, r * 0.06);
+  ctx.strokeStyle = `hsla(${c.h},${c.s}%,${Math.min(90, c.l + 20)}%,0.95)`; ctx.stroke();
+
+  // 纤毛
+  if (o.cilia) {
+    ctx.strokeStyle = `hsla(${c.h},${c.s}%,${c.l + 15}%,0.6)`; ctx.lineWidth = Math.max(1, r * 0.025);
+    ctx.beginPath();
+    for (let i = 0; i < 26; i++) {
+      const a = i / 26 * 6.2832, wob = Math.sin(gt * 6 + i) * 0.12;
+      ctx.moveTo(x + Math.cos(a) * r * 1.02, y + Math.sin(a) * r * 1.02);
+      ctx.lineTo(x + Math.cos(a + wob) * r * 1.2, y + Math.sin(a + wob) * r * 1.2);
+    }
+    ctx.stroke();
+  }
+
+  // 细胞器
+  for (const og of o.org) {
+    const a = og.a + gt * 0.15;
+    ctx.fillStyle = `hsla(${c.h + og.h},70%,${c.l + 22}%,0.5)`;
+    ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * og.d, y + Math.sin(a) * r * og.d, r * og.s, 0, 6.2832); ctx.fill();
+  }
+  // 细胞核
+  const nx = x + Math.cos(o.heading) * r * 0.1, ny = y + Math.sin(o.heading) * r * 0.1;
+  ctx.fillStyle = `hsla(${c.h},60%,${c.l - 25}%,0.7)`;
+  ctx.beginPath(); ctx.arc(nx, ny, r * 0.3, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = `hsla(${c.h},70%,${c.l + 10}%,0.7)`;
+  ctx.beginPath(); ctx.arc(nx - r * 0.06, ny - r * 0.06, r * 0.1, 0, 6.2832); ctx.fill();
+
+  // 眼睛
+  const ex = Math.cos(o.heading), ey = Math.sin(o.heading);
+  for (const s of [-1, 1]) {
+    const a = o.heading + s * 0.55;
+    const cx = x + Math.cos(a) * r * 0.55, cy = y + Math.sin(a) * r * 0.55, er = r * 0.15;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(cx, cy, er, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = o.angry ? '#a00' : '#123';
+    ctx.beginPath(); ctx.arc(cx + ex * er * 0.35, cy + ey * er * 0.35, er * 0.55, 0, 6.2832); ctx.fill();
+    if (o.angry) {
+      ctx.strokeStyle = '#300'; ctx.lineWidth = Math.max(1.5, r * 0.04);
+      ctx.beginPath();
+      const px = -ey, py = ex; // 垂直向量
+      ctx.moveTo(cx - ex * er * 0.2 + px * s * er * 1.5, cy - ey * er * 0.2 + py * s * er * 1.5);
+      ctx.lineTo(cx + ex * er * 1.5 - px * s * er * 0.3 - ex * 0.0, cy + ey * er * 1.5 - py * s * er * 0.3);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawVirus(v) {
+  const spikes = 16;
+  ctx.beginPath();
+  for (let i = 0; i < spikes * 2; i++) {
+    const a = i / (spikes * 2) * 6.2832 + v.rot;
+    const rr = i % 2 === 0 ? v.r * 1.28 : v.r * 0.92;
+    const px = v.x + Math.cos(a) * rr, py = v.y + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  const g = ctx.createRadialGradient(v.x, v.y, v.r * 0.1, v.x, v.y, v.r * 1.2);
+  g.addColorStop(0, 'rgba(160,240,60,0.75)'); g.addColorStop(1, 'rgba(60,140,20,0.85)');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,255,120,0.9)'; ctx.stroke();
+  ctx.fillStyle = 'rgba(30,70,10,0.6)';
+  ctx.beginPath(); ctx.arc(v.x, v.y, v.r * 0.45, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(210,255,140,0.8)';
+  ctx.beginPath(); ctx.arc(v.x - v.r * 0.12, v.y - v.r * 0.1, v.r * 0.12, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.arc(v.x + v.r * 0.14, v.y + v.r * 0.12, v.r * 0.08, 0, 6.2832); ctx.fill();
+}
+
+function render() {
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#04080c';
+  ctx.fillRect(0, 0, W, H);
+
+  let sx = 0, sy = 0;
+  if (shake > 0) { sx = rand(-shake, shake) * 0.5; sy = rand(-shake, shake) * 0.5; }
+
+  ctx.save();
+  ctx.translate(W / 2 + sx, H / 2 + sy);
+  ctx.scale(cam.zoom, cam.zoom);
+  ctx.translate(-cam.x, -cam.y);
+
+  const hw = W / 2 / cam.zoom + 60, hh = H / 2 / cam.zoom + 60;
+  const x0 = cam.x - hw, x1 = cam.x + hw, y0 = cam.y - hh, y1 = cam.y + hh;
+  const vis = (x, y, r) => x + r > x0 && x - r < x1 && y + r > y0 && y - r < y1;
+
+  // 培养皿
+  const dg = ctx.createRadialGradient(0, 0, 0, 0, 0, WORLD_R);
+  dg.addColorStop(0, '#0e3140'); dg.addColorStop(0.8, '#0a2230'); dg.addColorStop(1, '#0b2a36');
+  ctx.fillStyle = dg;
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R, 0, 6.2832); ctx.fill();
+
+  // 网格点
+  ctx.save();
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R, 0, 6.2832); ctx.clip();
+  const gs = 100;
+  ctx.fillStyle = 'rgba(140,230,255,0.10)';
+  for (let gx = Math.floor(x0 / gs) * gs; gx < x1; gx += gs)
+    for (let gy = Math.floor(y0 / gs) * gs; gy < y1; gy += gs) ctx.fillRect(gx - 1.5, gy - 1.5, 3, 3);
+  ctx.restore();
+
+  // 皿边
+  ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(94,231,255,0.35)';
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R + 7, 0, 6.2832); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(200,250,255,0.7)';
+  ctx.beginPath(); ctx.arc(0, 0, WORLD_R, 0, 6.2832); ctx.stroke();
+
+  // 食物
+  for (const f of foods) {
+    if (!vis(f.x, f.y, f.r * 2)) continue;
+    const pulse = 1 + 0.15 * Math.sin(gt * 3 + f.ph);
+    if (f.rich) {
+      ctx.fillStyle = 'rgba(255,220,100,0.18)';
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 2.2 * pulse, 0, 6.2832); ctx.fill();
+    }
+    ctx.fillStyle = `hsl(${f.hue},85%,${f.rich ? 68 : 62}%)`;
+    ctx.beginPath(); ctx.arc(f.x, f.y, f.r * pulse, 0, 6.2832); ctx.fill();
+  }
+
+  // 病毒
+  for (const v of viruses) if (vis(v.x, v.y, v.r * 1.4)) drawVirus(v);
+
+  // 敌人（小的在下面）
+  const sorted = enemies.slice().sort((a, b) => a.mass - b.mass);
+  for (const e of sorted) {
+    if (!vis(e.x, e.y, e.r * 1.3)) continue;
+    const c = relHue(e.mass);
+    drawCell(e.x, e.y, e.r, c, { ph: e.ph, org: e.org, heading: e.heading, angry: e.mass > player.mass * 1.15 || e.hunter, cilia: e.hunter });
+  }
+
+  // 玩家
+  if (state !== 'over') {
+    const s = STAGES[stageIdx];
+    const blink = player.inv > 0 && Math.floor(gt * 14) % 2 === 0;
+    if (player.dash > 0) {
+      ctx.fillStyle = `hsla(${s.hue},90%,70%,0.18)`;
+      for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(player.x - player.vx * 0.02 * i, player.y - player.vy * 0.02 * i, player.r * (1 - i * 0.08), 0, 6.2832); ctx.fill(); }
+    }
+    // 光晕
+    const hg = ctx.createRadialGradient(player.x, player.y, player.r, player.x, player.y, player.r * 1.7);
+    hg.addColorStop(0, `hsla(${s.hue},90%,65%,0.25)`); hg.addColorStop(1, `hsla(${s.hue},90%,65%,0)`);
+    ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(player.x, player.y, player.r * 1.7, 0, 6.2832); ctx.fill();
+    drawCell(player.x, player.y, player.r, { h: s.hue, s: s.sat, l: s.lit }, {
+      ph: player.ph, org: player.org, heading: player.heading, cilia: stageIdx >= 2, alpha: blink ? 0.45 : 1 });
+  }
+
+  // 粒子
+  for (const q of parts) {
+    ctx.fillStyle = q.col + (clamp(q.life / q.max, 0, 1)).toFixed(2) + ')';
+    ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, 6.2832); ctx.fill();
+  }
+  ctx.restore();
+
+  // 屏幕空间：漂浮的虚化光斑 + 暗角
+  for (const b of bokeh) {
+    b.y -= b.s * 0.016; if (b.y < -0.05) { b.y = 1.05; b.x = Math.random(); }
+    ctx.fillStyle = `rgba(150,235,255,${b.a})`;
+    ctx.beginPath(); ctx.arc(b.x * W, b.y * H, b.r, 0, 6.2832); ctx.fill();
+  }
+  const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, hitTimer > 0.9 ? 'rgba(120,0,0,0.5)' : 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  // 低能量警告
+  if (state === 'play' && player.energy < 25) {
+    const a = (0.12 + 0.1 * Math.sin(gt * 8)) * (1 - player.energy / 25);
+    ctx.fillStyle = `rgba(255,60,60,${a.toFixed(3)})`; ctx.fillRect(0, 0, W, H);
+  }
+
+  renderMinimap();
+}
+
+function renderMinimap() {
+  const S = mm.width, R = S / 2, k = (R - 6) / WORLD_R;
+  mctx.clearRect(0, 0, S, S);
+  mctx.strokeStyle = 'rgba(94,231,255,0.5)'; mctx.lineWidth = 2;
+  mctx.beginPath(); mctx.arc(R, R, R - 3, 0, 6.2832); mctx.stroke();
+  for (const v of viruses) { mctx.fillStyle = '#9be04b'; mctx.fillRect(R + v.x * k - 2, R + v.y * k - 2, 4, 4); }
+  for (const e of enemies) {
+    const c = relHue(e.mass);
+    mctx.fillStyle = `hsl(${c.h},${c.s}%,${c.l}%)`;
+    mctx.beginPath(); mctx.arc(R + e.x * k, R + e.y * k, Math.max(2, e.r * k), 0, 6.2832); mctx.fill();
+  }
+  mctx.fillStyle = '#fff';
+  mctx.beginPath(); mctx.arc(R + player.x * k, R + player.y * k, 4, 0, 6.2832); mctx.fill();
+  // 视野框
+  mctx.strokeStyle = 'rgba(255,255,255,0.4)'; mctx.lineWidth = 1;
+  const vw = W / cam.zoom * k, vh = H / cam.zoom * k;
+  mctx.strokeRect(R + cam.x * k - vw / 2, R + cam.y * k - vh / 2, vw, vh);
+}
+
+function updateHUD() {
+  const p = player, s = STAGES[stageIdx];
+  const en = clamp(p.energy, 0, 100);
+  $('stage').textContent = s.name;
+  $('stage').style.color = `hsl(${s.hue},${s.sat}%,${s.lit}%)`;
+  $('energyTxt').textContent = Math.ceil(en);
+  const bar = $('energyBar');
+  bar.style.width = en + '%';
+  bar.style.background = en > 50 ? 'var(--good)' : en > 25 ? 'var(--warn)' : 'var(--bad)';
+  $('massTxt').textContent = Math.round(p.mass);
+  $('timeTxt').textContent = fmtTime(time);
+  $('killTxt').textContent = kills;
+  $('scoreTxt').textContent = calcScore();
+  $('best').textContent = '最高分 ' + bestScore;
+  $('dashcd').style.height = (p.dashCd > 0 ? (p.dashCd / 1.4 * 100) : 0) + '%';
+}
+
+/* ---------- 主循环 ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  if (state === 'play') update(dt, true);
+  else if (state === 'menu') update(dt, false);
+  else if (state === 'over') update(dt, false);
+  render();
+  updateHUD();
+  requestAnimationFrame(frame);
+}
+
+newGame();
+$('best').textContent = '最高分 ' + bestScore;
+requestAnimationFrame(frame);
+
+// 调试入口（自动化测试用）
+window.__cell = { get state() { return state; }, get player() { return player; }, start: startGame, debug: () => ({ foods, enemies, viruses }) };
+})();
+</script>
+</body>
+</html>
