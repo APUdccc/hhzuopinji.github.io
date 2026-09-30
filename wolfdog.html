@@ -630,23 +630,25 @@ function drawDog(dt, v) {
 
 
 /* ---------- gorilla rider ---------- */
+function beat0(t) { const c = (t * .55) % 1; return smooth(0, .06, c) * (1 - smooth(.5, .58, c)); }
 function drawGorilla(t, sp, ph, T) {
   const run = Math.min(sp, 2.5), mv = Math.min(1, sp * 2.5);
-  const dark = T(hex('#3b3c45')), silver = T(hex('#8a8d94')), chest = T(hex('#4a4c55')), face = T(hex('#141418')), muzzle = T(hex('#3b3941'));
-  const far = mixC(dark, [8, 10, 24], .35);
+  const dark = T(hex('#6a3a22')), silver = T(hex('#d6994f')), chest = T(hex('#8c4e2b')), face = T(hex('#1d120d')), muzzle = T(hex('#6b4530'));
+  const far = mixC(dark, [20, 8, 12], .4);
   ctx.save();
   // secondary motion: the rider lags behind the dog's bounce and leans into the wind
-  ctx.translate(-12, -44); ctx.rotate(.06 * run + .05 * Math.sin(TAU * ph - .7) * mv);
-  ctx.translate(12, 44 + 3.2 * Math.sin(TAU * 2 * ph - .9) * mv);
+  ctx.translate(-12, -44); ctx.rotate(.14 * Math.min(run, 1.6) + .13 * Math.sin(TAU * ph - .7) * mv);
+  ctx.translate(12, 44 + 9 * Math.sin(TAU * 2 * ph - .9) * mv - 4 * Math.abs(Math.sin(TAU * ph - .3)) * mv);
   const lean = Math.sin(TAU * ph - .7) * mv;
-  ctx.translate(-12, -44); ctx.scale(1.32, 1.32); ctx.translate(12, 44);
+  ctx.translate(-12, -44); ctx.scale(1.75, 1.75); ctx.translate(12, 44);
 
   // far arm + leg (behind torso)
   const S0 = [12, -78], sh2 = [16, -76];
-  const armFar = ik(S0[0], S0[1], 60, -66, 34, 38, 1);
-  ctx.fillStyle = css(far); limb(S0[0], S0[1], armFar[0], armFar[1], 17, 12); limb(armFar[0], armFar[1], 60, -66, 12, 11);
-  ctx.beginPath(); ctx.arc(62, -65, 7.5, 0, TAU); ctx.fill();
-  const swing = Math.sin(TAU * ph + 1) * 4 * mv;
+  const fx = 60 + Math.sin(t * 5 + 1) * 4 * mv, fy = -66 + Math.cos(TAU * ph) * 5 * mv;
+  const armFar = ik(S0[0], S0[1], fx, fy, 34, 38, 1);
+  ctx.fillStyle = css(far); limb(S0[0], S0[1], armFar[0], armFar[1], 17, 12); limb(armFar[0], armFar[1], fx, fy, 12, 11);
+  ctx.beginPath(); ctx.arc(fx + 2, fy + 1, 7.5, 0, TAU); ctx.fill();
+  const swing = Math.sin(TAU * ph + 1) * 12 * Math.max(mv, .25) + Math.sin(t * 2) * 2;
   const legFar = ik(-10, -40, 8 + swing, 6, 32, 34, -1);
   limb(-10, -40, legFar[0], legFar[1], 20, 13); limb(legFar[0], legFar[1], 8 + swing, 6, 13, 10);
   ctx.beginPath(); ctx.ellipse(11 + swing, 6, 9, 5, .1, 0, TAU); ctx.fill();
@@ -682,8 +684,8 @@ function drawGorilla(t, sp, ph, T) {
 
   // head
   ctx.save(); ctx.translate(36, -90);
-  ctx.rotate(.12 + .07 * run - .07 * lean + .04 * Math.sin(t * 3));
-  const roar = sp > .3 ? .5 + .5 * Math.sin(t * 6 + 1) : 0, jaw = .12 + .3 * roar * Math.min(1, sp);
+  ctx.rotate(.12 + .1 * run - .16 * lean + .05 * Math.sin(t * 3) - .18 * beat0(t));
+  const roar = Math.max(beat0(t), sp > .3 ? .5 + .5 * Math.sin(t * 6 + 1) : 0), jaw = .12 + .34 * roar;
   ctx.fillStyle = css(dark); ctx.beginPath(); ctx.ellipse(-4, -12, 11, 9, -.2, 0, TAU); ctx.fill(); // crest
   ctx.fillStyle = css(face); ctx.beginPath(); ctx.ellipse(0, 0, 16, 15, 0, 0, TAU); ctx.fill(); // skull
   // lower jaw & open mouth
@@ -703,7 +705,11 @@ function drawGorilla(t, sp, ph, T) {
   ctx.restore();
 
   // near arm gripping the dog's neck fur
-  const S1 = [8, -74], gx = 58 + Math.sin(t * 9) * .8 * mv, gy = -60 + lean * 1.5;
+  const S1 = [8, -74];
+  // periodically the rider lets go of the neck and pounds its chest
+  const c = (t * .55) % 1, beat = smooth(0, .06, c) * (1 - smooth(.5, .58, c));
+  const hop = beat * (Math.abs(Math.sin(t * 20)) * 12);
+  const gx = lerp(58 + Math.sin(t * 9) * .8 * mv, 24 + Math.sin(t * 20) * 3, beat), gy = lerp(-60 + lean * 1.5, -52 - hop * .6, beat);
   const armN = ik(S1[0], S1[1], gx, gy, 34, 38, 1);
   ctx.fillStyle = css(dark); limb(S1[0], S1[1], armN[0], armN[1], 20, 14); limb(armN[0], armN[1], gx, gy, 14, 12);
   ctx.beginPath(); ctx.arc(gx + 1, gy, 8.5, 0, TAU); ctx.fill();
