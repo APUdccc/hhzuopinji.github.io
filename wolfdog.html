@@ -617,12 +617,97 @@ function drawDog(dt, v) {
   ctx.beginPath(); ctx.moveTo(64, -45); ctx.bezierCurveTo(30, -53, -20, -47, -58, -45);
   ctx.bezierCurveTo(-86, -45, -106, -30, -105, -6); ctx.stroke();
 
+  drawGorilla(t, sp, ph, T);
+
   // head
   drawHead(t, sp, furDark, furMid, furLight, cream, rim, ph, v);
 
   ctx.restore(); // body space
 
   drawLeg(solved[2], false); drawLeg(solved[3], false);
+  ctx.restore();
+}
+
+
+/* ---------- gorilla rider ---------- */
+function drawGorilla(t, sp, ph, T) {
+  const run = Math.min(sp, 2.5), mv = Math.min(1, sp * 2.5);
+  const dark = T(hex('#3b3c45')), silver = T(hex('#8a8d94')), chest = T(hex('#4a4c55')), face = T(hex('#141418')), muzzle = T(hex('#3b3941'));
+  const far = mixC(dark, [8, 10, 24], .35);
+  ctx.save();
+  // secondary motion: the rider lags behind the dog's bounce and leans into the wind
+  ctx.translate(-12, -44); ctx.rotate(.06 * run + .05 * Math.sin(TAU * ph - .7) * mv);
+  ctx.translate(12, 44 + 3.2 * Math.sin(TAU * 2 * ph - .9) * mv);
+  const lean = Math.sin(TAU * ph - .7) * mv;
+  ctx.translate(-12, -44); ctx.scale(1.32, 1.32); ctx.translate(12, 44);
+
+  // far arm + leg (behind torso)
+  const S0 = [12, -78], sh2 = [16, -76];
+  const armFar = ik(S0[0], S0[1], 60, -66, 34, 38, 1);
+  ctx.fillStyle = css(far); limb(S0[0], S0[1], armFar[0], armFar[1], 17, 12); limb(armFar[0], armFar[1], 60, -66, 12, 11);
+  ctx.beginPath(); ctx.arc(62, -65, 7.5, 0, TAU); ctx.fill();
+  const swing = Math.sin(TAU * ph + 1) * 4 * mv;
+  const legFar = ik(-10, -40, 8 + swing, 6, 32, 34, -1);
+  limb(-10, -40, legFar[0], legFar[1], 20, 13); limb(legFar[0], legFar[1], 8 + swing, 6, 13, 10);
+  ctx.beginPath(); ctx.ellipse(11 + swing, 6, 9, 5, .1, 0, TAU); ctx.fill();
+
+  // torso: hunched back, silverback saddle
+  const tg = ctx.createLinearGradient(-30, -96, 20, -30);
+  tg.addColorStop(0, css(mixC(dark, silver, .55))); tg.addColorStop(.42, css(dark)); tg.addColorStop(1, css(chest));
+  ctx.fillStyle = tg; ctx.beginPath(); ctx.moveTo(-32, -38);
+  ctx.bezierCurveTo(-44, -62, -32, -88, -8, -95);
+  ctx.bezierCurveTo(14, -101, 32, -94, 38, -78);
+  ctx.bezierCurveTo(48, -62, 42, -46, 27, -38);
+  ctx.bezierCurveTo(12, -32, -14, -30, -32, -38); ctx.closePath(); ctx.fill();
+  // silver saddle patch
+  ctx.fillStyle = css(silver, .62); ctx.beginPath(); ctx.moveTo(-36, -50);
+  ctx.bezierCurveTo(-38, -72, -22, -90, -4, -93); ctx.bezierCurveTo(8, -88, 2, -66, -6, -54); ctx.bezierCurveTo(-14, -46, -28, -44, -36, -50); ctx.fill();
+  // chest
+  ctx.fillStyle = css(chest, .9); ctx.beginPath(); ctx.ellipse(24, -58, 13, 17, .25, 0, TAU); ctx.fill();
+  // fur tufts in the wind
+  ctx.lineCap = 'round'; ctx.lineWidth = 1.8;
+  for (let i = 0; i < 16; i++) {
+    const a = i / 15, x = lerp(-34, 12, a), y = -38 - Math.sin(a * Math.PI * .55 + .1) * 57 - (i === 0 ? 0 : 0);
+    const px = -36 + a * 46, py = -46 - Math.sin(a * 1.9) * 48;
+    const ang = Math.PI + .3 - run * .14 + Math.sin(t * (13 + run * 5) + i * .8) * (.1 + .08 * run);
+    ctx.strokeStyle = css(i % 2 ? silver : dark, .55);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + Math.cos(ang) * (9 + run * 3), py + Math.sin(ang) * (9 + run * 3)); ctx.stroke();
+  }
+
+  // near leg draped over the dog's flank
+  const legN = ik(-14, -40, 2 - swing, 8, 32, 34, -1);
+  ctx.fillStyle = css(dark); limb(-14, -40, legN[0], legN[1], 24, 15); limb(legN[0], legN[1], 2 - swing, 8, 15, 11);
+  ctx.fillStyle = css(mixC(dark, chest, .6)); ctx.beginPath(); ctx.ellipse(4 - swing, 8, 10, 5.5, .1, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(face, .8); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8 - swing, 5); ctx.lineTo(9 - swing, 11); ctx.moveTo(13 - swing, 6); ctx.lineTo(14 - swing, 11); ctx.stroke();
+
+  // head
+  ctx.save(); ctx.translate(36, -90);
+  ctx.rotate(.12 + .07 * run - .07 * lean + .04 * Math.sin(t * 3));
+  const roar = sp > .3 ? .5 + .5 * Math.sin(t * 6 + 1) : 0, jaw = .12 + .3 * roar * Math.min(1, sp);
+  ctx.fillStyle = css(dark); ctx.beginPath(); ctx.ellipse(-4, -12, 11, 9, -.2, 0, TAU); ctx.fill(); // crest
+  ctx.fillStyle = css(face); ctx.beginPath(); ctx.ellipse(0, 0, 16, 15, 0, 0, TAU); ctx.fill(); // skull
+  // lower jaw & open mouth
+  ctx.save(); ctx.translate(-2, 8); ctx.rotate(jaw);
+  ctx.fillStyle = '#4a1220'; ctx.beginPath(); ctx.ellipse(8, 5, 11, 6, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = css(muzzle); ctx.beginPath(); ctx.ellipse(7, 8, 11, 5.5, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(2 + i * 4, 4); ctx.lineTo(3.5 + i * 4, 0); ctx.lineTo(5 + i * 4, 4); ctx.fill(); }
+  ctx.restore();
+  ctx.fillStyle = css(muzzle); ctx.beginPath(); ctx.ellipse(9, 2, 10, 8, .1, 0, TAU); ctx.fill(); // muzzle
+  ctx.fillStyle = '#f4efe2'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(4 + i * 4.5, 8); ctx.lineTo(5.8 + i * 4.5, 12 + jaw * 8); ctx.lineTo(7.5 + i * 4.5, 8); ctx.fill(); }
+  ctx.fillStyle = css(face); ctx.beginPath(); ctx.ellipse(14, 0, 1.6, 1, 0, 0, TAU); ctx.ellipse(17, 1, 1.6, 1, 0, 0, TAU); ctx.fill(); // nostrils
+  ctx.strokeStyle = '#08080a'; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(1, -6); ctx.lineTo(14, -3); ctx.stroke(); // brow ridge
+  ctx.fillStyle = '#ffcf5a'; ctx.beginPath(); ctx.arc(9, -2, 1.9, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(9.6, -2.7, .7, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(dark, .9); ctx.lineWidth = 1.6; // flying hair on the crown
+  for (let i = 0; i < 5; i++) { const a = Math.PI + .25 + Math.sin(t * 15 + i) * .15; ctx.beginPath(); ctx.moveTo(-8 + i * 2, -18 + i); ctx.lineTo(-8 + i * 2 + Math.cos(a) * 9, -18 + i + Math.sin(a) * 9); ctx.stroke(); }
+  ctx.restore();
+
+  // near arm gripping the dog's neck fur
+  const S1 = [8, -74], gx = 58 + Math.sin(t * 9) * .8 * mv, gy = -60 + lean * 1.5;
+  const armN = ik(S1[0], S1[1], gx, gy, 34, 38, 1);
+  ctx.fillStyle = css(dark); limb(S1[0], S1[1], armN[0], armN[1], 20, 14); limb(armN[0], armN[1], gx, gy, 14, 12);
+  ctx.beginPath(); ctx.arc(gx + 1, gy, 8.5, 0, TAU); ctx.fill();
+  ctx.strokeStyle = css(face, .85); ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i < 3; i++) { ctx.moveTo(gx + 4 + i * 2.5, gy - 4 + i * 3); ctx.lineTo(gx + 8 + i * 2.5, gy - 2 + i * 3); } ctx.stroke();
   ctx.restore();
 }
 
