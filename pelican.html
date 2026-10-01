@@ -71,7 +71,7 @@ kbd{font-family:var(--font);font-size:10.5px;padding:1px 6px;border-radius:6px;b
 .gauge .tick{stroke:rgba(255,255,255,.28);stroke-width:1.2}
 .gauge .tick.major{stroke:rgba(255,255,255,.6);stroke-width:2}
 .gauge text{fill:var(--ink-faint);font-family:var(--font);font-size:10px;text-anchor:middle}
-.gauge .val{fill:var(--ink);font-size:40px;font-weight:600;letter-spacing:-.02em}
+.gauge .val{fill:var(--ink);paint-order:stroke;stroke:rgba(16,20,30,.55);stroke-width:5px;stroke-linejoin:round;font-size:33px;font-weight:600;letter-spacing:-.02em}
 .gauge .unit{fill:var(--ink-faint);font-size:11px;letter-spacing:.12em}
 .gauge-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:2px;text-align:center}
 .gauge-stats div{font-size:10.5px;color:var(--ink-faint);letter-spacing:.06em}
@@ -129,6 +129,8 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radiu
 .chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink-soft);font-size:12.5px;transition:all .2s}
 .chip:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
 .chip.on{background:var(--ink);color:#1b1e26;border-color:transparent}
+#presets{gap:5px;flex-wrap:nowrap}
+#presets .chip{flex:1;padding:6px 0;text-align:center}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;padding:3px;border-radius:12px;background:rgba(255,255,255,.06)}
 .seg button{padding:7px 0;border-radius:9px;font-size:12px;color:var(--ink-soft);transition:all .2s}
 .seg button.on{background:rgba(255,255,255,.92);color:#1b1e26}
@@ -214,7 +216,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radiu
   .tb{width:36px;height:36px;border-radius:11px}
   #showUi{top:calc(10px + var(--sat));right:calc(10px + var(--sar))}
   .hud-bl{left:auto;right:calc(10px + var(--sar));top:calc(62px + var(--sat));bottom:auto;width:118px;padding:6px 8px 4px}
-  .gauge .val{font-size:46px}
+  .gauge .val{font-size:40px}
   .gauge-stats{display:none}
   .panel{top:auto;left:calc(10px + var(--sal));right:calc(10px + var(--sar));bottom:calc(10px + var(--sab));width:auto;max-height:54%}
   .panel-head{padding:10px 12px 8px 16px}
@@ -270,14 +272,14 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radiu
 
 <!-- speedometer -->
 <section class="ui hud-bl glass">
-  <svg class="gauge" viewBox="0 0 200 168" aria-label="速度表">
+  <svg class="gauge" viewBox="0 0 200 172" aria-label="速度表">
     <defs><linearGradient id="gArc" x1="0" x2="1"><stop offset="0" stop-color="#69d8d2"/><stop offset=".6" stop-color="#ffb46e"/><stop offset="1" stop-color="#ff6b5a"/></linearGradient></defs>
     <path id="gTrack" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="9" stroke-linecap="round"/>
     <path id="gFill" fill="none" stroke="url(#gArc)" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
     <g id="gTicks"></g>
-    <g id="gNeedle"><line x1="100" y1="100" x2="160" y2="100" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="#fff"/></g>
-    <text class="val" id="gVal" x="100" y="146">0</text>
-    <text class="unit" x="100" y="162">KM/H</text>
+    <g id="gNeedle"><line x1="100" y1="100" x2="152" y2="100" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="#fff"/></g>
+    <text class="val" id="gVal" x="100" y="152">0</text>
+    <text class="unit" x="100" y="166">KM/H</text>
   </svg>
   <div class="gauge-stats">
     <div>里程<b id="sDist">0.00</b></div>
@@ -314,9 +316,9 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radiu
     <div class="pane on" data-pane="ride">
       <div class="field">
         <div class="field-head"><label for="spd">目标时速</label><output id="spdOut">12 km/h</output></div>
-        <input type="range" id="spd" min="0" max="40" step="1" value="12">
+        <input type="range" id="spd" min="0" max="120" step="1" value="12">
         <div class="chips" id="presets" style="margin-top:6px">
-          <button class="chip" data-v="0">停车</button><button class="chip" data-v="8">散步</button><button class="chip" data-v="15">悠闲</button><button class="chip" data-v="25">兜风</button><button class="chip" data-v="38">冲刺</button>
+          <button class="chip" data-v="0">停车</button><button class="chip" data-v="8">散步</button><button class="chip" data-v="15">悠闲</button><button class="chip" data-v="30">兜风</button><button class="chip" data-v="60">冲刺</button><button class="chip" data-v="120">狂飙</button>
         </div>
       </div>
       <div class="btn-row">
@@ -466,7 +468,7 @@ const st = {
   speed: 0, target: 12, dist: 0, wheel: 0, crank: 0.6, pedaling: false, braking: false,
   cadence: 0, maxSpeed: 0, rideTime: 0, effort: 0, stopT: 0, stand: 1,
   bob: 0, bump: 0, lean: 0.05, tuck: 0, pouch: 0, pouchV: 0, blink: 0, blinkT: 2.5,
-  bellA: 0, lamp: 0, cruise: false,
+  bellA: 0, lamp: 0, cruise: false, gear: 2.4,
   hour: now0.getHours() + now0.getMinutes() / 60 + now0.getSeconds() / 3600, day: 1, ts: 60, todDrag: false,
   wx: { cloud: .2, rain: 0, fog: 0, storm: 0, wind: .25, dark: 0, waves: .4 },
   wxMode: 'auto', wxCur: 'sunny', wxNext: 80 + R() * 60,
@@ -585,9 +587,9 @@ const AU = (() => {
     tgt(nd.oceanLP.frequency, 360 + 900 * p.crash * (.5 + p.waves * .6), .2);
     tgt(nd.foam.gain, (.025 + .2 * p.crash + .09 * p.hiss) * (.5 + .7 * p.waves), .1);
     tgt(nd.surf.gain, .12 + .14 * p.waves, .5);
-    const sp = p.speed / 40;
+    const sp = Math.min(p.speed, 60) / 40;
     tgt(nd.wind.gain, Math.min(.9, .025 + p.wind * .22 + sp * sp * .55), .3);
-    tgt(nd.windF.frequency, 280 + p.wind * 520 + p.speed * 24, .3);
+    tgt(nd.windF.frequency, 280 + p.wind * 520 + Math.min(p.speed, 70) * 24, .3);
     tgt(nd.gust.gain, Math.max(0, p.wind - .55) * .05 * (1 + Math.sin(now * .7) * .6), .4);
     tgt(nd.gustF.frequency, 1100 + Math.sin(now * .45) * 400 + p.wind * 500, .4);
     tgt(nd.rain.gain, p.rain * .3, .5); tgt(nd.rainL.gain, p.rain * .28, .5);
@@ -684,7 +686,7 @@ const AU = (() => {
     const g2 = gain(0); chain(o, g2, pn); env(g2, t, .08 * size, .005, .12); o.start(t); o.stop(t + .2);
   }
   function brake(sp) {
-    if (!ok() || sp < 6) return; const t = ac.currentTime + .01, d = .25 + sp / 40 * .7;
+    if (!ok() || sp < 6) return; const t = ac.currentTime + .01, d = .25 + Math.min(sp, 60) / 60 * .9;
     const s = noiseShot(bufs.white, t, d + .1), gg = gain(0); chain(s, filt('bandpass', 2600, 7), gg, bus.bike); env(gg, t, .14 * Math.min(1, sp / 25), .03, d);
     const o = ac.createOscillator(); o.frequency.setValueAtTime(2900, t); o.frequency.linearRampToValueAtTime(2700, t + d);
     const g2 = gain(0); chain(o, g2, bus.bike); env(g2, t, .025 * Math.min(1, sp / 25), .05, d); o.start(t); o.stop(t + d + .1);
@@ -801,22 +803,23 @@ function update(dt) {
   /* ---- riding ---- */
   const target = st.cruise ? cruiseTarget() : st.target;
   const prev = st.speed;
-  if (st.braking) st.speed = Math.max(0, st.speed - 26 * dt);
-  else if (st.speed < target - .05) st.speed = Math.min(target, st.speed + (5.5 - st.speed * .07) * dt);
+  if (st.braking) st.speed = Math.max(0, st.speed - (26 + st.speed * .35) * dt);
+  else if (st.speed < target - .05) st.speed = Math.min(target, st.speed + (5.5 + st.speed * .06) * dt);
   else if (st.speed > target + .05) st.speed = Math.max(target, st.speed - (1.2 + st.speed * .05) * dt);
   const accel = (st.speed - prev) / Math.max(dt, 1e-4);
   st.pedaling = !st.braking && st.speed > .15 && target >= st.speed - .4;
   const dm = st.speed / 3.6 * dt; st.dist += dm; scrollPx = dm * 100 * S;
   const dW = dm / .33; st.wheel += dW;
-  if (st.pedaling) st.crank += dW / 2.4;
+  st.gear = lerp(st.gear || 2.4, 2.4 + Math.max(0, st.speed - 25) * .055, Math.min(1, dt * 2));
+  if (st.pedaling) st.crank += dW / st.gear;
   else { const lv = Math.round(st.crank / PI) * PI; st.crank += (lv - st.crank) * Math.min(1, dt * 3); }
-  if (dt > 0) st.cadence = lerp(st.cadence, st.pedaling ? dW / 2.4 / dt / TAU * 60 : 0, Math.min(1, dt * 4));
+  if (dt > 0) st.cadence = lerp(st.cadence, st.pedaling ? dW / st.gear / dt / TAU * 60 : 0, Math.min(1, dt * 4));
   st.effort = lerp(st.effort, st.pedaling ? clamp(.35 + (target - st.speed) / 6 + st.speed / 60, 0, 1) : 0, Math.min(1, dt * 3));
   st.bob = Math.sin(st.crank * 2) * 1.1 * st.effort;
-  const sf = st.speed / 40;
+  const sf = Math.min(st.speed, 40) / 40, vf = clamp((st.speed - 40) / 80, 0, 1);
   const nb = (Math.sin(st.dist * 9.1) * Math.sin(st.dist * 3.7 + 1.3) + Math.sin(st.dist * 17.3) * .4) * .7 * Math.min(1, sf * 1.5);
   const bumpV = (nb - st.bump) / Math.max(dt, 1e-4); st.bump = nb;
-  st.lean = lerp(st.lean, .04 + sf * .22 + (st.braking && st.speed > 1 ? -.07 : 0) + clamp(accel * .008, -.03, .05), Math.min(1, dt * 3));
+  st.lean = lerp(st.lean, .04 + sf * .22 + vf * .08 + (st.braking && st.speed > 1 ? -.07 : 0) + clamp(accel * .008, -.03, .05), Math.min(1, dt * 3));
   st.pouchV += (-70 * st.pouch - 5 * st.pouchV - bumpV * 1.3 - accel * .7) * dt;
   st.pouch = clamp(st.pouch + st.pouchV * dt, -5, 9);
   st.stopT = st.speed < .2 ? st.stopT + dt : 0;
@@ -1842,7 +1845,7 @@ function drawHead(c) {
   const OUT = 'rgba(92,80,70,.5)';
   // crest
   c.strokeStyle = '#f4f1ea'; c.lineWidth = 2.2; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(-7, -5); c.quadraticCurveTo(-13, -9, -17, -8 + Math.sin(T * 5) * .6 * (st.speed / 40)); c.moveTo(-8, -3); c.quadraticCurveTo(-14, -5, -18, -2.5 + Math.sin(T * 5 + 1) * .7 * (st.speed / 40)); c.stroke();
+  c.beginPath(); c.moveTo(-7, -5); c.quadraticCurveTo(-13, -9, -17, -8 + Math.sin(T * 5) * .6 * Math.min(1.5, st.speed / 40)); c.moveTo(-8, -3); c.quadraticCurveTo(-14, -5, -18, -2.5 + Math.sin(T * 5 + 1) * .7 * Math.min(1.5, st.speed / 40)); c.stroke();
   // head
   const hg = c.createRadialGradient(-2, -4, 1, 0, 0, 12); hg.addColorStop(0, '#ffffff'); hg.addColorStop(1, '#ebe6dc');
   c.fillStyle = hg; c.strokeStyle = OUT; c.lineWidth = .9; c.beginPath(); c.ellipse(0, 0, 11, 9.5, -.12, 0, TAU); c.fill(); c.stroke();
@@ -1875,7 +1878,7 @@ function drawHead(c) {
   }
   // straw hat
   if (st.acc.hat) {
-    c.save(); c.translate(-1, -8.4); c.rotate(-.1 - st.tuck * .12 - (st.speed / 40) * .16 + Math.sin(T * 9) * .015 * (st.speed / 40));
+    c.save(); c.translate(-1, -8.4); const hs = Math.min(1.6, st.speed / 40); c.rotate(-.1 - st.tuck * .12 - hs * .16 + Math.sin(T * (9 + hs * 6)) * .02 * hs);
     c.fillStyle = '#e2bf72'; c.strokeStyle = '#b48a44'; c.lineWidth = .8;
     c.beginPath(); c.ellipse(0, 0, 16.5, 3.6, 0, 0, TAU); c.fill(); c.stroke();
     c.fillStyle = '#ebcb80'; c.beginPath(); c.moveTo(-9, -.6); c.bezierCurveTo(-9.5, -12, 8.5, -12, 8, -.6); c.closePath(); c.fill(); c.stroke();
@@ -1885,7 +1888,7 @@ function drawHead(c) {
   }
 }
 function drawScarf(c) {
-  const sp = st.speed / 40, flow = clamp(st.speed / 14 + st.wx.wind * .35, 0, 1), kx = 4, ky = -38;
+  const sp = Math.min(1.4, st.speed / 40), flow = clamp(st.speed / 14 + st.wx.wind * .35, 0, 1), kx = 4, ky = -38;
   for (const [ph, len, off, col] of [[1.3, 7, 2.2, '#b93a2c'], [0, 9, 0, '#d94a3a']]) {
     const pts = [];
     for (let j = 0; j <= len; j++) {
@@ -1927,7 +1930,7 @@ function drawBasket(c) {
   // contents
   c.fillStyle = '#6b4a2e'; c.beginPath(); c.arc(48.5, -94.5, 5.6, 0, TAU); c.fill();
   c.fillStyle = 'rgba(255,220,180,.2)'; c.beginPath(); c.arc(47, -96.5, 2, 0, TAU); c.fill();
-  c.save(); c.translate(58, -97); c.rotate(-1.15 + Math.sin(T * 3) * .05 * st.speed / 40);
+  c.save(); c.translate(58, -97); c.rotate(-1.15 + Math.sin(T * 3) * .05 * Math.min(1.5, st.speed / 40));
   const fg = c.createLinearGradient(0, -3, 0, 3); fg.addColorStop(0, '#6f9fc8'); fg.addColorStop(1, '#dfe9f2');
   c.fillStyle = fg; c.beginPath(); c.ellipse(0, 0, 9, 3.4, 0, 0, TAU); c.fill();
   c.beginPath(); c.moveTo(7, 0); c.lineTo(13, -3.6); c.lineTo(12, 0); c.lineTo(13, 3.6); c.closePath(); c.fill();
@@ -2005,9 +2008,9 @@ function drawFX(E) {
   }
   // speed streaks
   if (st.speed > 22) {
-    const a = (st.speed - 22) / 18 * .25;
+    const a = Math.min(.42, (st.speed - 22) / 18 * .25);
     g.strokeStyle = `rgba(255,255,255,${a})`; g.lineWidth = 1.2 * S; g.lineCap = 'round'; g.beginPath();
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < (st.speed > 60 ? 24 : 12); i++) {
       const y = GY - (30 + rnd(i, 51) * 170) * S, sp = (1.5 + rnd(i, 52)) * W, x = W + 100 - fract(T * sp / W * (st.speed / 30) + rnd(i, 53)) * (W + 300), l = (40 + rnd(i, 54) * 90) * S;
       g.moveTo(x, y); g.lineTo(x + l, y);
     }
@@ -2100,10 +2103,10 @@ function arcPath(cx, cy, r, a0, a1) {
 (function buildGauge() {
   const d = arcPath(100, 100, 80, GA0, GA1); $('#gTrack').setAttribute('d', d); ui.gFill.setAttribute('d', d);
   let html = '';
-  for (let v = 0; v <= 40; v += 2) {
-    const a = GA0 + v / 40 * (GA1 - GA0), major = v % 10 === 0, r0 = major ? 62 : 66, r1 = 71;
+  for (let v = 0; v <= 120; v += 5) {
+    const a = GA0 + v / 120 * (GA1 - GA0), major = v % 20 === 0, r0 = major ? 62 : 66, r1 = 71;
     html += `<line class="tick${major ? ' major' : ''}" x1="${(100 + Math.cos(a) * r0).toFixed(1)}" y1="${(100 + Math.sin(a) * r0).toFixed(1)}" x2="${(100 + Math.cos(a) * r1).toFixed(1)}" y2="${(100 + Math.sin(a) * r1).toFixed(1)}"/>`;
-    if (major) html += `<text x="${(100 + Math.cos(a) * 51).toFixed(1)}" y="${(103.5 + Math.sin(a) * 51).toFixed(1)}">${v}</text>`;
+    if (major && v > 0 && v < 120) html += `<text x="${(100 + Math.cos(a) * 51).toFixed(1)}" y="${(103.5 + Math.sin(a) * 51).toFixed(1)}">${v}</text>`;
   }
   $('#gTicks').innerHTML = html;
 })();
@@ -2115,7 +2118,7 @@ function buildTodGradient() {
 let hudT = 0, gaugeV = 0;
 function updateHUD(dt) {
   gaugeV = lerp(gaugeV, st.speed, Math.min(1, dt * 8));
-  const k = clamp(gaugeV / 40, 0, 1), ang = (GA0 + k * (GA1 - GA0)) * 180 / PI;
+  const k = clamp(gaugeV / 120, 0, 1), ang = (GA0 + k * (GA1 - GA0)) * 180 / PI;
   ui.gNeedle.setAttribute('transform', `rotate(${ang.toFixed(2)} 100 100)`);
   ui.gFill.setAttribute('stroke-dasharray', `${(k * 100).toFixed(2)} 100`);
   hudT -= dt; if (hudT > 0) return; hudT = .12;
@@ -2154,7 +2157,7 @@ const savePrefs = () => store.set({ acc: st.acc, bikeColor: st.bikeColor, vol: A
 
 /* ride */
 function setTarget(v, fromSlider) {
-  st.target = clamp(Math.round(v), 0, 40);
+  st.target = clamp(Math.round(v), 0, 120);
   if (!fromSlider) ui.spd.value = st.target;
   ui.spdOut.textContent = st.target + ' km/h'; setFill(ui.spd);
   if (st.cruise) { st.cruise = false; ui.cruise.checked = false; }
@@ -2281,8 +2284,8 @@ addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = e.target.tagName, onInput = tag === 'INPUT', onBtn = tag === 'BUTTON';
   const k = e.key;
-  if ((k === 'ArrowUp' || k === 'ArrowRight') && !onInput) { e.preventDefault(); setTarget(st.target + 2); }
-  else if ((k === 'ArrowDown' || k === 'ArrowLeft') && !onInput) { e.preventDefault(); setTarget(st.target - 2); }
+  if ((k === 'ArrowUp' || k === 'ArrowRight') && !onInput) { e.preventDefault(); setTarget(st.target + (st.target >= 30 ? 5 : 2)); }
+  else if ((k === 'ArrowDown' || k === 'ArrowLeft') && !onInput) { e.preventDefault(); setTarget(st.target - (st.target > 30 ? 5 : 2)); }
   else if (k === ' ' && !onBtn && !onInput) { e.preventDefault(); if (!e.repeat) ringBell(); }
   else if (k === 'b' || k === 'B') brakeOn();
   else if (k === 'h' || k === 'H') setHidden(!document.body.classList.contains('ui-hidden'));
@@ -2318,7 +2321,7 @@ st.wxCur = 'sunny';
   const q = new URLSearchParams(location.search);
   const t = parseFloat(q.get('t')); if (t >= 0 && t < 24) st.hour = t;
   const w = q.get('w'); if (w && WX[w]) { setWx(w); Object.assign(st.wx, WX[w]); }
-  const s = parseFloat(q.get('s')); if (s >= 0 && s <= 40) { setTarget(s); st.speed = s; }
+  const s = parseFloat(q.get('s')); if (s >= 0 && s <= 120) { setTarget(s); st.speed = s; }
   const ts = parseInt(q.get('ts'), 10); if (TS_HINT[ts] !== undefined) setTs(ts);
 }
 function frame(now) {
@@ -2327,7 +2330,7 @@ function frame(now) {
   const p = fract(T / waveT() + phi(RX / S + st.dist * 80)), crash = p < .06 ? p / .06 : Math.exp(-(p - .06) * 5);
   AU.update({
     crash, hiss: p > .3 && p < .8 ? 1 - Math.abs(p - .55) / .25 : 0, waves: st.wx.waves, wind: st.wx.wind, speed: st.speed, rain: st.wx.rain,
-    night: E ? E.night : 0, coast: !st.pedaling && st.speed > .5 && !st.braking, tick: st.speed / 3.6 / (TAU * .33) * 24, fire: fireLevel
+    night: E ? E.night : 0, coast: !st.pedaling && st.speed > .5 && !st.braking, tick: Math.min(st.speed, 40) / 3.6 / (TAU * .33) * 24, fire: fireLevel
   });
   requestAnimationFrame(frame);
 }
