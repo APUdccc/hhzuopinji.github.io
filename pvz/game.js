@@ -256,6 +256,11 @@ const SFX = (() => {
         go() { if (!ok()) return; tone(523, 0.12, 'triangle', 0.15); tone(784, 0.3, 'triangle', 0.18, null, 0.1); },
         pop() { if (!ok('pop', 60)) return; tone(380, 0.12, 'sine', 0.14, 900); },
         arm() { if (!ok('arm', 100)) return; noise(0.2, 0.2, 500); tone(300, 0.15, 'sine', 0.12, 600, 0.05); },
+        laser() { if (!ok('laser', 100)) return; tone(1900, 0.38, 'sawtooth', 0.05, 220); tone(950, 0.32, 'square', 0.025, 140); },
+        warp() { if (!ok('warp', 150)) return; tone(200, 0.5, 'sine', 0.14, 1600); tone(300, 0.5, 'triangle', 0.05, 2400, 0.05); },
+        ufo() { if (!ok()) return; for (let i = 0; i < 7; i++) tone(520 + (i % 2) * 160, 0.24, 'sine', 0.07, null, i * 0.22); tone(140, 1.8, 'sawtooth', 0.035, 90); },
+        zap() { if (!ok('zap', 60)) return; tone(2400, 0.06, 'square', 0.025, 1200); noise(0.05, 0.05, 4000, 'highpass'); },
+        glass() { if (!ok('glass', 200)) return; noise(0.45, 0.3, 5000, 'highpass'); tone(3000, 0.3, 'triangle', 0.05, 1800); },
     };
 })();
 
@@ -279,6 +284,7 @@ const ZT = {
     cone: { name: '路障僵尸', hp: 270, armor: 370, armorType: 'cone', speed: [13.5, 17], cost: 2, weight: 7, minWave: 2 },
     bucket: { name: '铁桶僵尸', hp: 270, armor: 1100, armorType: 'bucket', speed: [13.5, 17], cost: 4, weight: 4, minWave: 3 },
     football: { name: '橄榄球僵尸', hp: 270, armor: 1400, armorType: 'helmet', speed: [34, 40], cost: 7, weight: 2, minWave: 4 },
+    alien: { name: '外星僵尸首领', hp: 3000, armor: 0, speed: [9, 10], cost: 0, weight: 0, minWave: 99, boss: true },
 };
 
 const ALL_PLANTS = ['sunflower', 'peashooter', 'snowpea', 'repeater', 'wallnut', 'potatomine', 'cherrybomb', 'chomper'];
@@ -286,8 +292,8 @@ const LEVELS = [
     { name: '初来乍到', plants: ['sunflower', 'peashooter', 'wallnut'], zombies: ['normal'], waves: 6, huge: [6], base: 0.6, grow: 0.45, sun: 50, first: 26, featP: 'peashooter', featZ: 'normal', note: '豌豆射手 · 坚果墙' },
     { name: '路障来袭', plants: ['sunflower', 'peashooter', 'wallnut', 'potatomine', 'cherrybomb'], zombies: ['normal', 'cone'], waves: 10, huge: [10], base: 0.8, grow: 0.55, sun: 50, first: 24, featP: 'cherrybomb', featZ: 'cone', note: '樱桃炸弹 · 土豆地雷' },
     { name: '寒冰时刻', plants: ['sunflower', 'peashooter', 'snowpea', 'wallnut', 'potatomine', 'cherrybomb'], zombies: ['normal', 'cone', 'bucket'], waves: 12, huge: [6, 12], base: 1, grow: 0.62, sun: 75, first: 22, featP: 'snowpea', featZ: 'bucket', note: '寒冰射手 · 铁桶僵尸' },
-    { name: '全力冲锋', plants: ALL_PLANTS, zombies: ['normal', 'cone', 'bucket', 'football'], waves: 15, huge: [8, 15], base: 1.1, grow: 0.7, sun: 100, first: 22, featP: 'chomper', featZ: 'football', note: '大嘴花 · 双发射手' },
-    { name: '最终防线', plants: ALL_PLANTS, zombies: ['normal', 'cone', 'bucket', 'football'], waves: 20, huge: [10, 20], base: 1.3, grow: 0.78, sun: 150, first: 20, featP: 'repeater', featZ: 'flag', note: '终极挑战 · 20 波' },
+    { name: '全力冲锋', plants: ALL_PLANTS, zombies: ['normal', 'cone', 'bucket', 'football'], waves: 15, huge: [8, 15], base: 1.1, grow: 0.7, sun: 100, first: 22, featP: 'chomper', featZ: 'football', note: '大嘴花 · 首领登场', boss: [15] },
+    { name: '最终防线', plants: ALL_PLANTS, zombies: ['normal', 'cone', 'bucket', 'football'], waves: 20, huge: [10, 20], base: 1.3, grow: 0.78, sun: 150, first: 20, featP: 'repeater', featZ: 'alien', note: '外星首领 ×2 · 20 波', boss: [10, 20] },
 ];
 
 // ======================================================================
@@ -913,7 +919,316 @@ const PALS = {
 // 每只僵尸固定的随机外观特征
 const zv = (z, i) => (z && z.v ? z.v[i % z.v.length] : 0.5);
 
+// ======================================================================
+// 外星僵尸首领（小 Boss）
+// ======================================================================
+const ALIEN_BASE = {
+    skin: '#8ea795', skinHi: '#cfe0d2', skinD: '#4a6153', suit: '#9aa4ae', suitHi: '#e2e8ee', suitD: '#4a525c',
+    glow: '#53f5df', glowD: '#13a597', eye: '#07090d', line: '#121618', vein: '#9a5ac0', brain: '#e89ab0', blood: '#4a1030',
+};
+const ALIEN_PALS = { n: ALIEN_BASE, s: tintPal(ALIEN_BASE, '#6fb3ff', 0.4) };
+const ALIEN_ASH = {};
+for (const k in ALIEN_BASE) ALIEN_ASH[k] = k === 'skinHi' || k === 'suitHi' ? '#4a403a' : (k === 'glow' ? '#ff9a3a' : '#211b18');
+const BOSS_SCALE = 1.22;
+
+function drawAlien(c, z) {
+    const P = z.burnt ? ALIEN_ASH : (z.slow > 0 ? ALIEN_PALS.s : ALIEN_PALS.n);
+    const eat = z.eating && !z.dying;
+    const still = eat || z.burnt || z.aiming > 0 || z.entry > 0;
+    const ph = z.ph, t = z.t;
+    const pulse = z.burnt ? 0 : 0.5 + 0.5 * Math.sin(t * 4);
+    c.save();
+    let alpha = 1;
+    if (z.entry > 0) {
+        const k = 1 - z.entry / 2.6;
+        alpha = clamp((k - 0.35) / 0.35, 0, 1);
+        drawUfoEntrance(c, z, k);
+    }
+    if (z.warpT > 0) alpha *= 1 - z.warpT / 0.6;
+    c.globalAlpha *= alpha;
+    c.scale(BOSS_SCALE, BOSS_SCALE);
+    const sw = still ? 0 : Math.sin(ph) * 0.36;
+    const bob = eat ? Math.sin(t * 8) * 1.4 : (still ? 0 : -Math.abs(Math.sin(ph)) * 2.6);
+    c.translate(0, bob);
+    alienLeg(c, P, 9, -52, -sw, false);
+    alienLeg(c, P, -5, -52, sw, true);
+    const et = t * (z.slow > 0 ? 4 : 8);
+    const armB = eat ? 0.3 + Math.sin(et) * 0.3 : -0.1 + Math.sin(ph) * 0.06;
+    alienArm(c, P, 9, -100, armB);
+    alienTorso(c, P, pulse);
+    c.save();
+    c.translate(-4, -126 + (eat ? Math.sin(et) * 2 : Math.sin(ph * 2)));
+    c.rotate(eat ? -0.08 + Math.sin(et) * 0.06 : Math.sin(ph) * 0.04);
+    alienHead(c, P, eat ? (Math.sin(et) > 0 ? 1 : 0.2) : 0.2, pulse);
+    c.restore();
+    const aim = z.aiming > 0 ? -0.04 : (eat ? 0.4 + Math.sin(et + 1.5) * 0.3 : 0.05 + Math.sin(ph + 1) * 0.06);
+    const charge = !z.burnt && z.laserT != null && z.laserT < 1.2 ? 1 - z.laserT / 1.2 : 0;
+    alienGunArm(c, P, -6, -98, aim, pulse, charge);
+    if (z.laser && !z.burnt && !z.dying) {
+        const k = clamp(z.laser.t / 0.45, 0, 1);
+        const mx = -6 - 74 * Math.cos(aim) + 0.5 * Math.sin(aim), my = -98 - 74 * Math.sin(aim) - 0.5 * Math.cos(aim);
+        const tx = (z.laser.tx - z.x) / BOSS_SCALE, ty = (z.laser.ty - z.y) / BOSS_SCALE - bob;
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        c.lineCap = 'round';
+        for (const [w, col] of [[14, `rgba(80,245,225,${0.25 * k})`], [6, `rgba(150,255,240,${0.6 * k})`], [2.2, `rgba(255,255,255,${0.95 * k})`]]) {
+            c.beginPath(); c.moveTo(mx, my); c.lineTo(tx, ty); c.lineWidth = w; c.strokeStyle = col; c.stroke();
+        }
+        for (const [x, y, r] of [[mx, my, 10], [tx, ty, 16]]) {
+            c.fillStyle = rad(c, x, y, r, [`rgba(255,255,255,${k})`, `rgba(80,245,225,${0.6 * k})`, 'rgba(80,245,225,0)'], 0, 0);
+            circ(c, x, y, r); c.fill();
+        }
+        c.restore();
+    }
+    if (z.shield > 0 && !z.burnt && !z.dying && !(z.entry > 0)) drawAlienShield(c, z);
+    c.restore();
+}
+
+function alienLeg(c, P, x, y, a, front) {
+    c.save(); c.translate(x, y); c.rotate(a);
+    const s = front ? P.suit : darken(P.suit, 0.18);
+    rrect(c, -7, -4, 14, 30, 6);
+    fs(c, lin(c, -7, 0, 7, 0, [lighten(s, 0.3), s, darken(s, 0.32)]), P.line, 1.3);
+    circ(c, 0, 26, 5.5); fs(c, rad(c, 0, 26, 5.5, [P.suitHi, P.suit, P.suitD]), P.line, 1.1);
+    c.save(); c.translate(0, 26); c.rotate(-0.05 - Math.max(0, -a) * 0.6);
+    rrect(c, -6, 0, 12, 19, 5);
+    fs(c, lin(c, -6, 0, 6, 0, [lighten(s, 0.3), s, darken(s, 0.32)]), P.line, 1.2);
+    c.beginPath(); c.moveTo(-2.5, 4); c.lineTo(-2.5, 15);
+    c.lineWidth = 1.5; c.strokeStyle = rgba(P.glow, 0.85); c.stroke();
+    c.beginPath(); c.moveTo(-6, 17); c.quadraticCurveTo(-22, 16, -21, 25); c.lineTo(8, 25); c.lineTo(8, 17); c.closePath();
+    fs(c, lin(c, 0, 16, 0, 25, [P.suitHi, P.suit, P.suitD]), P.line, 1.3);
+    c.fillStyle = darken(P.suitD, 0.35); c.fillRect(-21, 24, 29, 2.4);
+    circ(c, -12, 20.5, 1.6); fs(c, P.glow);
+    c.restore();
+    c.restore();
+}
+
+function alienSleeve(c, P) {
+    rrect(c, -22, -6.5, 28, 13, 6);
+    fs(c, lin(c, 0, -6.5, 0, 6.5, [P.suitHi, P.suit, P.suitD]), P.line, 1.3);
+    c.strokeStyle = rgba(P.line, 0.4); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-8, -6); c.lineTo(-8, 6); c.moveTo(-15, -6); c.lineTo(-15, 6); c.stroke();
+    c.beginPath(); c.moveTo(-21, -5); c.lineTo(-21, 5); c.lineWidth = 1.6; c.strokeStyle = rgba(P.glow, 0.9); c.stroke();
+    c.beginPath(); c.moveTo(-22, -3.6); c.quadraticCurveTo(-33, -2.5, -44, -2.6); c.lineTo(-44, 2.6); c.quadraticCurveTo(-33, 3, -22, 3.8); c.closePath();
+    fs(c, lin(c, 0, -3.6, 0, 3.6, [lighten(P.skin, 0.15), P.skin, P.skinD]), P.line, 1.2);
+}
+
+function alienArm(c, P, x, y, a) {
+    c.save(); c.translate(x, y); c.rotate(a);
+    alienSleeve(c, P);
+    ell(c, -48, 0, 5.5, 4.6); fs(c, P.skin, P.line, 1.2);
+    c.lineCap = 'round';
+    const tips = [[-63, -4.5], [-65, 0.5], [-61, 5]];
+    for (let pass = 0; pass < 2; pass++) {
+        c.beginPath();
+        for (const [tx, ty] of tips) { c.moveTo(-51, ty * 0.4); c.quadraticCurveTo((tx - 51) / 2 - 2, ty * 0.6, tx, ty); }
+        c.lineWidth = pass ? 1.8 : 3.4; c.strokeStyle = pass ? P.skin : P.line; c.stroke();
+    }
+    for (const [tx, ty] of tips) { circ(c, tx, ty, 1.7); fs(c, P.skinHi, P.line, 0.8); }
+    c.restore();
+}
+
+function alienGunArm(c, P, x, y, a, pulse, charge) {
+    c.save(); c.translate(x, y); c.rotate(a);
+    alienSleeve(c, P);
+    c.save(); c.translate(-46, 0);
+    rrect(c, -3, 0, 6, 10, 2); fs(c, P.suitD, P.line, 1);
+    c.beginPath();
+    c.moveTo(5, -6); c.lineTo(-14, -7.5); c.lineTo(-20, -4.5); c.lineTo(-26, -4.5); c.lineTo(-26, 3.5); c.lineTo(-14, 4.5); c.lineTo(5, 4.5);
+    c.closePath();
+    fs(c, lin(c, 0, -7.5, 0, 4.5, [P.suitHi, P.suit, P.suitD]), P.line, 1.2);
+    for (const gx of [-8, -12, -16]) { ell(c, gx, -1.5, 1.5, 5.4); fs(c, rgba(P.glow, 0.45 + pulse * 0.45)); }
+    const r = 3 + charge * 3.5;
+    c.fillStyle = rad(c, -28, -0.5, r * 3, [rgba(P.glow, 0.5 * (0.4 + charge)), rgba(P.glow, 0)], 0, 0);
+    circ(c, -28, -0.5, r * 3); c.fill();
+    circ(c, -28, -0.5, r); fs(c, rad(c, -28, -0.5, r, ['#ffffff', P.glow, P.glowD], 0, 0));
+    c.restore();
+    ell(c, -46, 1, 5, 4.6); fs(c, P.skin, P.line, 1.2);
+    c.beginPath(); c.arc(-46, 3, 3.5, 0.1 * Math.PI, 0.9 * Math.PI); c.lineWidth = 1; c.strokeStyle = P.line; c.stroke();
+    c.restore();
+}
+
+function alienTorso(c, P, pulse) {
+    rrect(c, -8, -116, 10, 18, 3); fs(c, lin(c, -8, 0, 2, 0, [P.skin, P.skinD]), P.line, 1.2);
+    c.beginPath(); c.moveTo(2, -114); c.quadraticCurveTo(12, -110, 10, -100);
+    c.lineWidth = 2.2; c.strokeStyle = P.glowD; c.stroke();
+    const body = () => {
+        c.beginPath();
+        c.moveTo(-17, -104); c.quadraticCurveTo(0, -112, 19, -103);
+        c.lineTo(21, -56); c.lineTo(14, -50); c.lineTo(-14, -50); c.lineTo(-20, -56);
+        c.closePath();
+    };
+    body();
+    fs(c, lin(c, -20, 0, 21, 0, [P.suitHi, P.suit, P.suitD]), P.line, 1.5);
+    c.save(); body(); c.clip();
+    c.strokeStyle = rgba(P.line, 0.3); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-2, -108); c.lineTo(-2, -50); c.moveTo(-22, -76); c.lineTo(22, -76); c.stroke();
+    c.strokeStyle = rgba(P.glow, 0.45 + pulse * 0.35); c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(-12, -100); c.lineTo(-13, -58); c.moveTo(13, -100); c.lineTo(15, -58); c.stroke();
+    // 破损处露出腐烂皮肤
+    ell(c, 11, -66, 6, 5, 0.3); fs(c, P.skinD, P.line, 1);
+    c.strokeStyle = P.line; c.lineWidth = 0.8;
+    c.beginPath(); for (let i = 0; i < 3; i++) { c.moveTo(6 + i * 4, -71); c.lineTo(7 + i * 4, -68); } c.stroke();
+    c.fillStyle = lin(c, 0, -100, 0, -50, ['rgba(0,0,0,0)', 'rgba(0,0,0,.25)']); c.fillRect(-22, -110, 44, 62);
+    c.restore();
+    c.fillStyle = rad(c, -2, -84, 16, [rgba(P.glow, 0.45 * pulse), rgba(P.glow, 0)], 0, 0);
+    circ(c, -2, -84, 16); c.fill();
+    circ(c, -2, -84, 6); fs(c, rad(c, -2, -84, 6, ['#ffffff', P.glow, P.glowD], -0.2, -0.2), P.line, 1.2);
+    ell(c, -2, -104, 15, 4.5); fs(c, lin(c, 0, -108, 0, -100, [P.suitHi, P.suitD]), P.line, 1.2);
+    ell(c, -12, -101, 9, 6); fs(c, rad(c, -12, -101, 9, [P.suitHi, P.suit, P.suitD]), P.line, 1.2);
+    ell(c, 14, -100, 8, 5.5); fs(c, rad(c, 14, -100, 8, [P.suitHi, P.suit, P.suitD]), P.line, 1.2);
+    rrect(c, -20, -58, 41, 7, 3); fs(c, P.suitD, P.line, 1.1);
+    rrect(c, -5, -57.5, 8, 6, 1.5); fs(c, rgba(P.glow, 0.6 + pulse * 0.4));
+}
+
+function alienHeadPath(c) {
+    c.beginPath();
+    c.moveTo(-10, 14);
+    c.bezierCurveTo(-20, 10, -27, 0, -28, -14);
+    c.bezierCurveTo(-31, -36, -16, -48, 2, -46);
+    c.bezierCurveTo(22, -44, 31, -28, 24, -8);
+    c.bezierCurveTo(18, 6, 2, 14, -10, 14);
+    c.closePath();
+}
+
+function alienHead(c, P, mouthOpen, pulse) {
+    // 触角
+    for (const [bx, by, cx, cy, ex, ey] of [[-6, -42, -8, -56, -18, -64], [8, -43, 12, -56, 20, -61]]) {
+        c.beginPath(); c.moveTo(bx, by); c.quadraticCurveTo(cx, cy, ex, ey);
+        c.lineCap = 'round'; c.lineWidth = 3.4; c.strokeStyle = P.line; c.stroke();
+        c.lineWidth = 2; c.strokeStyle = P.skinD; c.stroke();
+        c.fillStyle = rad(c, ex, ey, 11, [rgba(P.glow, 0.5 * pulse + 0.1), rgba(P.glow, 0)], 0, 0);
+        circ(c, ex, ey, 11); c.fill();
+        circ(c, ex, ey, 3.4); fs(c, rad(c, ex, ey, 3.4, ['#ffffff', P.glow, P.glowD], -0.3, -0.3), P.line, 0.8);
+    }
+    alienHeadPath(c);
+    fs(c, rad(c, -6, -20, 42, [P.skinHi, P.skin, P.skinD], -0.4, -0.5), P.line, 1.5);
+    c.save(); alienHeadPath(c); c.clip();
+    c.strokeStyle = rgba(P.vein, 0.35 + pulse * 0.3); c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(-14, -40); c.quadraticCurveTo(-6, -30, -10, -22);
+    c.moveTo(4, -44); c.quadraticCurveTo(0, -34, 6, -26); c.lineTo(2, -20);
+    c.moveTo(20, -20); c.quadraticCurveTo(14, -14, 16, -6);
+    c.stroke();
+    c.fillStyle = rgba(P.skinD, 0.5);
+    ell(c, -18, -30, 4, 3, 0.4); c.fill(); ell(c, 6, 4, 5, 3); c.fill(); ell(c, 18, -38, 3, 2); c.fill();
+    // 颅骨破口露出大脑
+    c.beginPath();
+    c.moveTo(4, -38); c.lineTo(10, -42); c.lineTo(16, -40); c.lineTo(22, -34); c.lineTo(20, -26); c.lineTo(14, -24); c.lineTo(8, -27); c.lineTo(3, -32);
+    c.closePath();
+    fs(c, rad(c, 13, -33, 10, [lighten(P.brain, 0.3), P.brain, darken(P.brain, 0.35)]), P.blood, 1.4);
+    c.strokeStyle = rgba(darken(P.brain, 0.45), 0.8); c.lineWidth = 0.9;
+    c.beginPath();
+    c.moveTo(7, -34); c.quadraticCurveTo(10, -38, 13, -34); c.quadraticCurveTo(16, -30, 19, -33);
+    c.moveTo(9, -29); c.quadraticCurveTo(12, -31, 15, -28);
+    c.stroke();
+    c.fillStyle = lin(c, 6, 0, 30, 0, ['rgba(0,0,0,0)', 'rgba(0,0,0,.3)']); c.fillRect(6, -50, 30, 70);
+    c.restore();
+    // 缝线
+    c.beginPath(); c.moveTo(-22, -28); c.quadraticCurveTo(-14, -36, -4, -38);
+    c.lineWidth = 1.8; c.strokeStyle = rgba(P.blood, 0.8); c.stroke();
+    c.lineWidth = 0.9; c.strokeStyle = '#121010';
+    c.beginPath(); for (let i = 0; i < 4; i++) { const sx = -19 + i * 4.5, sy = -31 - i * 1.8; c.moveTo(sx - 1.2, sy - 2.4); c.lineTo(sx + 1.2, sy + 2.4); } c.stroke();
+    // 大黑眼（一只浑浊开裂）
+    c.save(); c.translate(-17, -12); c.rotate(-0.45);
+    ell(c, 0, 0, 10, 5.8); fs(c, rad(c, 0, 0, 10, ['#3a2456', P.eye], 0.2, 0.3), P.line, 1.2);
+    ell(c, -3, -2, 3.2, 1.5); fs(c, 'rgba(255,255,255,.85)');
+    circ(c, 4, 1.5, 1); fs(c, rgba(P.glow, 0.8));
+    c.restore();
+    c.save(); c.translate(1, -13); c.rotate(0.4);
+    ell(c, 0, 0, 7.5, 4.8); fs(c, rad(c, 0, 0, 7.5, ['#9fb0aa', '#5e6e69', '#2e3a36'], -0.2, -0.2), P.line, 1.1);
+    c.beginPath(); c.moveTo(-4, -3); c.lineTo(-1, 0); c.lineTo(-3, 3); c.moveTo(-1, 0); c.lineTo(3, -1);
+    c.lineWidth = 0.7; c.strokeStyle = '#1a2220'; c.stroke();
+    c.restore();
+    // 鼻孔
+    c.fillStyle = P.line;
+    ell(c, -25, -1, 0.9, 1.6, 0.3); c.fill(); ell(c, -22.5, -0.5, 0.9, 1.6, 0.3); c.fill();
+    // 嘴
+    const m = 1 + mouthOpen * 4.5;
+    c.beginPath(); c.moveTo(-23, 5); c.quadraticCurveTo(-18, 4, -13, 6); c.quadraticCurveTo(-18, 6 + m, -22, 5 + m * 0.8); c.closePath();
+    fs(c, '#1a0812', P.line, 1);
+    c.fillStyle = '#d8d0b0';
+    for (let i = 0; i < 3; i++) c.fillRect(-21.5 + i * 2.6, 4.8, 1.4, 1.8);
+    if (mouthOpen > 0.5) {
+        c.beginPath(); c.moveTo(-18, 6 + m); c.quadraticCurveTo(-18.5, 10 + m, -17.5, 13 + m);
+        c.lineWidth = 1.4; c.strokeStyle = rgba(P.glow, 0.7); c.stroke();
+    }
+}
+
+function drawAlienShield(c, z) {
+    const k = z.shield / z.maxShield, hit = z.shieldHit > 0 ? 1 : 0;
+    const cx = -6, cy = -96, rx = 54, ry = 106;
+    c.save();
+    ell(c, cx, cy, rx, ry);
+    c.fillStyle = rad(c, cx, cy, ry, ['rgba(80,245,225,0)', `rgba(80,245,225,${0.05 + hit * 0.12})`, `rgba(80,245,225,${0.2 + hit * 0.3})`], 0, 0);
+    c.fill();
+    c.lineWidth = 1.8; c.strokeStyle = `rgba(150,255,240,${0.3 + 0.45 * k + hit * 0.25})`; c.stroke();
+    c.save();
+    ell(c, cx, cy, rx, ry); c.clip();
+    c.beginPath();
+    const off = (z.t * 8) % 14, hr = 7.5;
+    let row = 0;
+    for (let yy = cy - ry - 14 + off; yy < cy + ry; yy += 13, row++) {
+        for (let xx = cx - rx + (row % 2) * 8; xx < cx + rx + 8; xx += 16) {
+            for (let i = 0; i <= 6; i++) {
+                const a = i / 6 * TAU + Math.PI / 6;
+                const px = xx + Math.cos(a) * hr, py = yy + Math.sin(a) * hr;
+                i ? c.lineTo(px, py) : c.moveTo(px, py);
+            }
+        }
+    }
+    c.lineWidth = 0.7; c.strokeStyle = `rgba(150,255,240,${0.1 + k * 0.1 + hit * 0.3})`; c.stroke();
+    c.restore();
+    c.beginPath(); c.ellipse(cx, cy, rx - 6, ry - 8, 0, Math.PI * 1.15, Math.PI * 1.45);
+    c.lineWidth = 3; c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineCap = 'round'; c.stroke();
+    c.restore();
+}
+
+function drawUfo(c, x, y, t) {
+    c.save(); c.translate(x, y);
+    ell(c, 0, 12, 44, 9); fs(c, 'rgba(120,255,230,.35)');
+    c.beginPath(); c.ellipse(0, -8, 24, 22, 0, Math.PI, TAU); c.closePath();
+    fs(c, rad(c, -6, -18, 26, ['rgba(230,255,250,.95)', 'rgba(130,220,255,.6)', 'rgba(40,110,150,.75)']), '#1f3a4a', 1.4);
+    ell(c, 0, 0, 66, 15);
+    fs(c, lin(c, 0, -15, 0, 15, ['#f2f5f8', '#a2acb6', '#48505a']), '#1a2026', 1.6);
+    ell(c, 0, 5, 40, 7); fs(c, '#363e47');
+    ell(c, 0, -3, 58, 4); fs(c, 'rgba(255,255,255,.35)');
+    for (let i = 0; i < 9; i++) {
+        const lx = -52 + i * 13, on = (i + Math.floor(t * 8)) % 3 === 0;
+        const col = on ? '#ffe066' : (i % 2 ? '#ff5a8a' : '#53f5df');
+        if (on) { c.fillStyle = rad(c, lx, 4, 8, ['rgba(255,240,150,.8)', 'rgba(255,240,150,0)'], 0, 0); circ(c, lx, 4, 8); c.fill(); }
+        circ(c, lx, 4, 2.6); fs(c, col, '#1a2026', 0.8);
+    }
+    c.restore();
+}
+
+function drawUfoEntrance(c, z, k) {
+    const ty = Math.max(160, z.y - 300) - z.y;
+    let ux = 0, uy;
+    if (k < 0.3) { const q = 1 - Math.pow(1 - k / 0.3, 3); uy = lerp(-z.y - 90, ty, q); ux = lerp(260, 0, q); }
+    else if (k < 0.85) uy = ty + Math.sin(k * 30) * 2;
+    else { const q = (k - 0.85) / 0.15; uy = ty - q * q * 420; ux = q * q * 320; }
+    if (k > 0.3 && k < 0.88) {
+        const ba = Math.min(1, (k - 0.3) / 0.08) * Math.min(1, (0.88 - k) / 0.06);
+        c.save();
+        c.globalAlpha *= ba;
+        c.beginPath(); c.moveTo(ux - 16, uy + 10); c.lineTo(ux + 16, uy + 10); c.lineTo(62, 4); c.lineTo(-62, 4); c.closePath();
+        c.fillStyle = lin(c, 0, uy, 0, 0, ['rgba(170,255,240,.75)', 'rgba(170,255,240,.18)']);
+        c.fill();
+        c.strokeStyle = 'rgba(200,255,250,.5)'; c.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+            const q = ((z.t * 0.9 + i / 4) % 1);
+            const yy = lerp(uy + 10, 0, q), hw = lerp(16, 62, q);
+            c.beginPath(); c.ellipse(0, yy, hw, hw * 0.12, 0, 0, TAU); c.stroke();
+        }
+        ell(c, 0, 2, 64, 10); fs(c, 'rgba(170,255,240,.35)');
+        c.restore();
+    }
+    drawUfo(c, ux, uy, z.t);
+}
+
 function drawZombie(c, z) {
+    if (z.type === 'alien') { drawAlien(c, z); return; }
     const P = z.burnt ? ASH : (z.slow > 0 ? PALS[z.palKey].s : PALS[z.palKey].n);
     const fb = z.type === 'football';
     const eat = z.eating && !z.dying;
@@ -1503,6 +1818,7 @@ function makeZombie(type, row, x) {
         speed: rand(T.speed[0], T.speed[1]), t: rand(0, 10), ph: rand(0, TAU),
         hit: 0, slow: 0, eating: false, chompT: 0, armLost: false, headless: false,
         dying: false, dt: 0, burnt: false, remove: false, v: Array.from({ length: 16 }, Math.random), palKey: type === 'football' ? 'football' : 'normal',
+        ...(T.boss ? { boss: true, shield: 900, maxShield: 900, shieldT: 0, shieldHit: 0, laserT: 4, laser: null, aiming: 0, warpT: 0, entry: 0, tp1: false, tp2: false } : {}),
     };
 }
 
@@ -1586,15 +1902,24 @@ function dropArmor(z) {
 function liveZombies() { let n = 0; for (const z of game.zombies) if (!z.dying) n++; return n; }
 
 function damageZombie(z, dmg, sound = true) {
-    if (z.dying) return;
+    if (z.dying || z.entry > 0) return;
     z.hit = 0.1;
+    if (z.shield > 0) {
+        z.shield -= dmg; z.shieldHit = 0.15;
+        if (sound) SFX.zap();
+        if (z.shield > 0) return;
+        dmg = -z.shield; z.shield = 0; z.shieldT = 12;
+        SFX.glass();
+        for (let i = 0; i < 18; i++) part({ kind: 'chunk', x: z.x + rand(-50, 50), y: z.y - rand(30, 220), vx: rand(-120, 120), vy: rand(-200, -40), g: 500, life: rand(0.5, 0.9), size: rand(3, 6), color: pick(['#bffff4', '#53f5df', '#ffffff']), vr: rand(-10, 10) });
+        part({ kind: 'word', x: z.x, y: z.y - 230, text: '护盾破碎！', life: 1.1, size: 30, color: '#9ffff0' });
+    }
     if (z.armor > 0) {
         z.armor -= dmg;
         if (sound) { if (z.armorType === 'cone') SFX.plastic(); else SFX.metal(); }
         if (z.armor <= 0) { dmg = -z.armor; z.armor = 0; dropArmor(z); } else return;
     } else if (sound) SFX.hit();
     z.hp -= dmg;
-    if (!z.armLost && z.hp < z.maxHp * 0.5) {
+    if (!z.boss && !z.armLost && z.hp < z.maxHp * 0.5) {
         z.armLost = true;
         part({ kind: 'zarm', x: z.x - 30, y: z.y - 90, vx: rand(-20, 30), vy: rand(-120, -60), g: 900, ground: z.y - 6, rot: 0.2, vr: rand(-6, 6), life: 1.4, pal: z.palKey, fb: z.type === 'football', zz: z });
     }
@@ -1606,7 +1931,9 @@ function killZombie(z, how) {
     z.dying = true; z.dt = 0; z.eating = false;
     game.lastDeath = { x: clamp(z.x, G.x + 40, G.x + G.cols * G.cw - 40), y: z.y - 50 };
     if (how === 'burn') { z.burnt = true; return; }
+    if (z.boss) bossDefeated(z);
     if (how === 'eaten') { z.remove = true; return; }
+    if (z.boss) return;
     if (!z.headless) { z.headless = true; zombieHeadParticle(z); }
 }
 
@@ -1615,6 +1942,13 @@ function burnArea(cx, cy, row0, row1, x0, x1) {
         if (z.dying || z.row < row0 || z.row > row1) continue;
         const zx = z.x - 10;
         if (zx >= x0 && zx <= x1 && z.x < W + 30) {
+            if (z.boss) {
+                if (z.entry > 0) continue;
+                z.shield = 0; z.shieldT = 12;
+                damageZombie(z, 1800, false);
+                if (z.dying) z.burnt = true;
+                continue;
+            }
             z.armor = 0; z.hp = 0;
             killZombie(z, 'burn');
         }
@@ -1691,7 +2025,7 @@ function updatePlants(dt) {
                 if (p.cState === 'idle') {
                     let target = null;
                     for (const z of game.zombies) {
-                        if (z.dying || z.row !== p.r) continue;
+                        if (z.dying || z.row !== p.r || z.boss) continue;
                         const d = z.x - p.x;
                         if (d > -10 && d < 135 && (!target || z.x < target.x)) target = z;
                     }
@@ -1736,8 +2070,9 @@ function updatePeas(dt) {
         }
         let hitZ = null;
         for (const z of game.zombies) {
-            if (z.dying || z.row !== pe.r || z.x > W - 10) continue;
-            if (pe.x >= z.x - 26 && pe.x <= z.x + 28 && (!hitZ || z.x < hitZ.x)) hitZ = z;
+            if (z.dying || z.row !== pe.r || z.x > W - 10 || z.entry > 0) continue;
+            const hw = z.boss ? (z.shield > 0 ? 62 : 36) : 26;
+            if (pe.x >= z.x - hw && pe.x <= z.x + hw + 2 && (!hitZ || z.x < hitZ.x)) hitZ = z;
         }
         if (hitZ) {
             damageZombie(hitZ, 20);
@@ -1752,8 +2087,60 @@ function updatePeas(dt) {
     game.peas = game.peas.filter(p => !p.dead);
 }
 
+function updateBoss(z, dt) {
+    z.warpT = Math.max(0, z.warpT - dt);
+    z.shieldHit = Math.max(0, z.shieldHit - dt);
+    if (z.shield <= 0) {
+        z.shieldT -= dt;
+        if (z.shieldT <= 0) { z.shield = z.maxShield * 0.6; SFX.warp(); }
+    }
+    const f = z.hp / z.maxHp;
+    if (f < 0.6 && !z.tp1) { z.tp1 = true; bossWarp(z); }
+    else if (f < 0.3 && !z.tp2) { z.tp2 = true; bossWarp(z); }
+    if (z.laser) { z.laser.t -= dt; if (z.laser.t <= 0) z.laser = null; }
+    z.laserT -= dt;
+    if (z.laserT <= 0 && z.x < W - 40) {
+        let target = null;
+        for (const p of game.plants) if (p.r === z.row && p.x < z.x - 30 && p.x > z.x - 560 && (!target || p.x > target.x)) target = p;
+        if (target) {
+            z.laserT = 6.5; z.aiming = 0.5;
+            z.laser = { tx: target.x, ty: target.y - 40, t: 0.45 };
+            target.hp -= 160; target.hurt = 0.25;
+            SFX.laser();
+            for (let i = 0; i < 12; i++) part({ kind: 'dot', x: target.x, y: target.y - 40, vx: rand(-140, 140), vy: rand(-160, 40), g: 300, life: rand(0.3, 0.6), size: rand(2, 4), color: pick(['#ffffff', '#53f5df', '#bffff4']) });
+            if (target.hp <= 0) { removePlant(target); dirt(target.x, target.y, 8); }
+        } else z.laserT = 1.2;
+    }
+}
+
+function bossWarp(z) {
+    const rows = [z.row - 1, z.row + 1].filter(r => r >= 0 && r < G.rows);
+    const burst = (x, y) => {
+        part({ kind: 'ring', x, y: y - 100, life: 0.5, size: 60, color: '#b388ff', lw: 6 });
+        for (let i = 0; i < 20; i++) { const a = rand(0, TAU), sp = rand(60, 220); part({ kind: 'dot', x, y: y - rand(20, 200), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rand(0.3, 0.7), size: rand(2, 4), color: pick(['#b388ff', '#53f5df', '#ffffff']) }); }
+    };
+    burst(z.x, z.y);
+    z.row = pick(rows); z.y = rowBase(z.row);
+    z.eating = false; z.warpT = 0.6; z.aiming = 0; z.laser = null;
+    z.shield = z.maxShield; z.shieldT = 0;
+    burst(z.x, z.y);
+    SFX.warp();
+    part({ kind: 'word', x: z.x, y: z.y - 240, text: '瞬移！', life: 1, size: 30, color: '#d8c4ff' });
+}
+
+function bossDefeated(z) {
+    banner('外星首领被击败！', '#c9a8ff', 2.4, 66);
+    SFX.boom();
+    game.shake = Math.max(game.shake, 14);
+    for (let i = 0; i < 40; i++) {
+        const a = rand(0, TAU), sp = rand(80, 320);
+        part({ kind: 'dot', x: z.x, y: z.y - 110, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, g: 500, life: rand(0.6, 1.2), size: rand(3, 6), color: pick(['#53f5df', '#8ea795', '#b388ff', '#e89ab0']) });
+    }
+    part({ kind: 'ring', x: z.x, y: z.y - 110, life: 0.6, size: 90, color: '#53f5df', lw: 8 });
+}
+
 function biteTarget(z) {
-    const bx = z.x - 24;
+    const bx = z.x - (z.boss ? 34 : 24);
     let best = null;
     for (let col = G.cols - 1; col >= 0; col--) {
         const p = game.grid[z.row][col];
@@ -1779,10 +2166,15 @@ function updateZombies(dt) {
             continue;
         }
         const sf = z.slow > 0 ? 0.5 : 1;
+        if (z.entry > 0) { z.entry = Math.max(0, z.entry - dt); continue; }
+        if (z.boss) {
+            updateBoss(z, dt * sf);
+            if (z.aiming > 0) { z.aiming -= dt; continue; }
+        }
         const target = biteTarget(z);
         if (target) {
             z.eating = true;
-            target.hp -= 100 * dt * sf;
+            target.hp -= (z.boss ? 200 : 100) * dt * sf;
             target.hurt = 0.08;
             z.chompT -= dt;
             if (z.chompT <= 0) { z.chompT = 0.5 / sf; SFX.chomp(); }
@@ -1814,6 +2206,13 @@ function updateMowers(dt) {
             if (Math.random() < dt * 30) part({ kind: 'smoke', x: m.x - 30, y: m.y - 30, vx: rand(-60, -20), vy: rand(-30, -10), life: 0.6, size: rand(6, 12), color: '#cfcfcf' });
             for (const z of game.zombies) {
                 if (!z.dying && z.row === m.r && z.x - 30 < m.x + 28 && z.x > m.x - 40) {
+                    if (z.boss) {
+                        z.shield = 0; z.shieldT = 12;
+                        damageZombie(z, 1500, false);
+                        boom(m.x + 20, m.y - 20, 50, 'potato');
+                        m.gone = true;
+                        break;
+                    }
                     z.armor = 0; z.hp = 0;
                     killZombie(z, 'normal');
                     for (let i = 0; i < 6; i++) part({ kind: 'dot', x: z.x, y: z.y - rand(20, 80), vx: rand(40, 160), vy: rand(-160, -40), g: 600, life: 0.6, size: rand(2, 4), color: pick(['#97a183', '#5b4b3b', '#41475c', '#5e1a14']) });
@@ -1880,7 +2279,13 @@ function updateWaves(dt) {
     for (let i = game.queue.length - 1; i >= 0; i--) {
         const q = game.queue[i];
         if (game.t >= q.at) {
-            game.zombies.push(makeZombie(q.type, pickRow()));
+            const z = makeZombie(q.type, q.type === 'alien' ? pick([1, 2, 3]) : pickRow());
+            if (z.boss) {
+                z.x = W - 190; z.entry = 2.6;
+                banner('外星僵尸首领降临！', '#c9a8ff', 2.6, 62);
+                SFX.ufo();
+            }
+            game.zombies.push(z);
             game.queue.splice(i, 1);
         }
     }
@@ -1922,6 +2327,7 @@ function spawnWave() {
     game.nextWaveAt = game.t + (huge ? 34 : 25) + d * 0.5;
     if (i === 1) SFX.groan();
     if (i === L.waves) { banner('最后一波！', '#ff3b30', 2.4, 84); game.finalShown = true; }
+    if (L.boss && L.boss.includes(i)) game.queue.push({ at: game.t + 2.6, type: 'alien' });
 }
 
 function loseGame() {
@@ -2085,7 +2491,7 @@ function renderWorld(c, plants, zombies, peas, parts) {
         const R = rows[r];
         c.fillStyle = 'rgba(0,30,0,.22)';
         for (const p of R.p) { ell(c, p.x, p.y - 1, p.type === 'wallnut' ? 32 : 28, 8); c.fill(); }
-        for (const z of R.z) if (!(z.dying && z.dt > 0.8)) { ell(c, z.x + 2, z.y, 30, 8); c.fill(); }
+        for (const z of R.z) if (!(z.dying && z.dt > 0.8) && !(z.entry > 0)) { ell(c, z.x + 2, z.y, z.boss ? 40 : 30, z.boss ? 10 : 8); c.fill(); }
         R.p.sort((a, b) => a.col - b.col);
         for (const p of R.p) renderPlant(c, p);
         R.z.sort((a, b) => b.x - a.x);
@@ -2329,6 +2735,22 @@ function renderUI(c) {
     c.lineWidth = 4; c.strokeStyle = 'rgba(40,20,0,.75)';
     const wt = game.wave === 0 ? '僵尸即将到来…' : `第 ${game.wave} / ${L.waves} 波`;
     c.strokeText(wt, px + pw / 2, py + ph + 18); c.fillText(wt, px + pw / 2, py + ph + 18);
+
+    // 首领血条
+    const boss = game.zombies.find(z => z.boss && !z.dying && !(z.entry > 0));
+    if (boss) {
+        const bw = 400, bx = W / 2 - bw / 2 + 70, by = H - 30;
+        rrect(c, bx - 14, by - 28, bw + 28, 50, 12); fs(c, 'rgba(22,12,40,.82)', '#b388ff', 2);
+        c.font = `17px ${FONT}`; c.textBaseline = 'middle';
+        c.textAlign = 'left'; c.fillStyle = '#e8dcff'; c.fillText('外星僵尸首领', bx, by - 14);
+        c.textAlign = 'right'; c.fillStyle = '#bfaee0';
+        c.fillText(boss.shield > 0 ? `护盾 ${Math.ceil(boss.shield)}` : `护盾重启 ${Math.ceil(boss.shieldT)}s`, bx + bw, by - 14);
+        rrect(c, bx, by - 3, bw, 12, 6); fs(c, '#2a1a3a');
+        const hf = clamp(boss.hp / boss.maxHp, 0, 1);
+        if (hf > 0) { rrect(c, bx, by - 3, bw * hf, 12, 6); fs(c, lin(c, 0, by - 3, 0, by + 9, ['#ff8aa6', '#e0245e', '#8a0f36'])); }
+        const sf2 = clamp(boss.shield / boss.maxShield, 0, 1);
+        if (sf2 > 0) { rrect(c, bx, by + 11, bw * sf2, 4, 2); fs(c, '#53f5df'); }
+    }
 
     // 卡片提示
     if (hoverIdx >= 0 && !game.holding) {
@@ -2590,6 +3012,7 @@ function setupDemo() {
         Object.assign(makeZombie('bucket', 3, 1060), {}),
         Object.assign(makeZombie('flag', 1, 1110), {}),
         Object.assign(makeZombie('football', 4, 940), {}),
+        Object.assign(makeZombie('alien', 2, 1060), {}),
     ];
 }
 
