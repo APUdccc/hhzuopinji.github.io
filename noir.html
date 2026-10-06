@@ -24,6 +24,7 @@
             --s-edge: #1c1416;
             --s-mid: #5e4644;
             --s-hi: #b08c82;
+            --lace-op: .55;
             --serif-en: "Cormorant Garamond", "Times New Roman", serif;
             --serif-zh: "Noto Serif SC", "Songti SC", "STSong", serif;
             color-scheme: dark;
@@ -281,6 +282,48 @@
         .tag-lace { top: 24%; left: 0; }
         .tag-seam { top: 55%; left: 2%; }
         .tag-heel { bottom: 9%; left: 4%; }
+        .tag-trim { top: 26%; left: -6%; }
+        .tag-cup { top: 37%; left: -7%; }
+        .tag-brief { top: 63%; left: -5%; }
+
+        /* 视图切换 */
+        .stage .figure, .stage .tag { transition: opacity .7s ease, transform .9s cubic-bezier(.2, .7, .2, 1); }
+        .stage[data-view="legs"] [data-for="lingerie"],
+        .stage[data-view="legs"] .figure.lingerie,
+        .stage[data-view="lingerie"] [data-for="legs"],
+        .stage[data-view="lingerie"] .figure.legs {
+            opacity: 0;
+            transform: translateY(14px);
+            pointer-events: none;
+        }
+
+        .views { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+
+        .views button {
+            padding: 12px 22px;
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            color: var(--ink-soft);
+            font-family: var(--serif-zh);
+            font-size: 14px;
+            letter-spacing: .2em;
+            cursor: pointer;
+            transition: border-color .3s, color .3s, background .3s;
+        }
+
+        .views button small {
+            display: block;
+            margin-top: 2px;
+            font-family: var(--serif-en);
+            font-size: 11px;
+            letter-spacing: .3em;
+            text-transform: uppercase;
+            color: var(--ink-faint);
+        }
+
+        .views button:hover { border-color: rgba(201, 169, 110, .5); color: var(--ink); }
+        .views button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: var(--gold-soft); }
 
         /* 光泽流动 */
         .sheen {
@@ -396,6 +439,7 @@
             .details-head { flex-direction: column; align-items: start; }
             .cards { grid-template-columns: 1fr; }
             .tag::after { width: 24px; }
+            .tag-trim, .tag-cup, .tag-brief { display: none; }
         }
     </style>
 </head>
@@ -421,7 +465,12 @@
             </p>
 
             <div class="rise d4">
-                <div class="denier-label">Denier · 丹尼尔</div>
+                <div class="denier-label">View · 展示</div>
+                <div class="views" role="group" aria-label="切换展示">
+                    <button type="button" data-view="legs" aria-pressed="true">腿部 · 丝袜<small>Legs</small></button>
+                    <button type="button" data-view="lingerie" aria-pressed="false">上身 · 蕾丝内衣<small>Lingerie</small></button>
+                </div>
+                <div class="denier-label">Denier · 丹尼尔 / 透度</div>
                 <div class="denier" role="group" aria-label="选择丹尼尔">
                     <button type="button" data-d="10" aria-pressed="false"><span class="swatch"></span>10D</button>
                     <button type="button" data-d="20" aria-pressed="true"><span class="swatch"></span>20D</button>
@@ -436,10 +485,10 @@
             </div>
         </section>
 
-        <section class="stage rise d3" aria-label="黑丝与细跟高跟鞋的时装插画">
+        <section class="stage rise d3" data-view="legs" aria-label="黑丝与蕾丝内衣的时装插画">
             <div class="corners"></div>
 
-            <svg class="figure" viewBox="0 -60 500 1000" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+            <svg class="figure legs" viewBox="0 -60 500 1000" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
                 <defs>
                     <!-- 腿部轮廓（侧面，朝右） -->
                     <path id="leg" d="M140,-60
@@ -656,10 +705,246 @@
                 </g>
             </svg>
 
+            <!-- 上身：法式蕾丝内衣 -->
+            <svg class="figure lingerie" viewBox="0 0 500 800" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                    <path id="body" d="M218,20 L282,20
+                        C282,50 284,66 290,76
+                        C306,88 334,94 362,100
+                        C386,106 398,124 396,150
+                        C394,172 384,190 376,206
+                        C372,260 362,340 340,420
+                        C334,450 344,500 362,550
+                        C374,590 380,640 376,700
+                        L378,800 L262,800
+                        C258,760 256,730 250,706
+                        C244,730 242,760 238,800
+                        L122,800 L124,700
+                        C120,640 126,590 138,550
+                        C156,500 166,450 160,420
+                        C138,340 128,260 124,206
+                        C116,190 106,172 104,150
+                        C102,124 114,106 138,100
+                        C166,94 194,88 210,76
+                        C216,66 218,50 218,20 Z"/>
+                    <clipPath id="bodyClip"><use href="#body"/></clipPath>
+
+                    <!-- 右侧罩杯（左侧镜像） -->
+                    <path id="cupR" d="M256,268
+                        C276,252 318,234 364,238
+                        C388,262 390,308 364,334
+                        C342,356 290,358 262,338
+                        C252,322 250,296 256,268 Z"/>
+                    <path id="cupEdgeR" d="M256,268 C276,252 318,234 364,238"/>
+                    <path id="bandR" d="M250,340 C284,358 336,358 380,330 L382,346 C338,372 286,374 250,356 Z"/>
+                    <path id="briefR" d="M250,508 C290,510 334,504 380,492 L384,540 C340,560 296,628 266,700 L250,704 Z"/>
+                    <path id="legOpenR" d="M384,540 C340,560 296,628 266,700"/>
+
+                    <linearGradient id="bodySkin" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stop-color="#c0928a"/>
+                        <stop offset=".18" stop-color="#e6c7bb"/>
+                        <stop offset=".5" stop-color="#fae9e0"/>
+                        <stop offset=".82" stop-color="#e6c7bb"/>
+                        <stop offset="1" stop-color="#c0928a"/>
+                    </linearGradient>
+                    <radialGradient id="cupSheen" cx=".42" cy=".32" r=".75">
+                        <stop offset="0" stop-color="#ffe9e0" stop-opacity=".22"/>
+                        <stop offset=".55" stop-color="#ffe9e0" stop-opacity="0"/>
+                        <stop offset=".8" stop-color="#000" stop-opacity=".25"/>
+                        <stop offset="1" stop-color="#000" stop-opacity=".55"/>
+                    </radialGradient>
+                    <radialGradient id="mound" cx=".45" cy=".38" r=".6">
+                        <stop offset="0" stop-color="#fff" stop-opacity=".42"/>
+                        <stop offset=".7" stop-color="#fff" stop-opacity=".08"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="briefSheen" cx=".3" cy=".25" r=".9">
+                        <stop offset="0" stop-color="#ffe9e0" stop-opacity=".16"/>
+                        <stop offset=".6" stop-color="#ffe9e0" stop-opacity="0"/>
+                        <stop offset="1" stop-color="#000" stop-opacity=".35"/>
+                    </radialGradient>
+
+                    <!-- 六角网底 -->
+                    <pattern id="mesh" width="4" height="4" patternUnits="userSpaceOnUse">
+                        <path d="M0,2 L2,0 L4,2 L2,4 Z" fill="none" stroke="#000" stroke-width=".4" stroke-opacity=".45"/>
+                    </pattern>
+                    <!-- 花卉蕾丝：大花 + 藤蔓 + 小花两层错位 -->
+                    <pattern id="floral" width="46" height="46" patternUnits="userSpaceOnUse" patternTransform="rotate(-14)">
+                        <g transform="translate(23 23)">
+                            <g fill="#0b0809" fill-opacity=".92">
+                                <ellipse cy="-6.4" rx="3.4" ry="6"/>
+                                <ellipse cy="-6.4" rx="3.4" ry="6" transform="rotate(60)"/>
+                                <ellipse cy="-6.4" rx="3.4" ry="6" transform="rotate(120)"/>
+                                <ellipse cy="-6.4" rx="3.4" ry="6" transform="rotate(180)"/>
+                                <ellipse cy="-6.4" rx="3.4" ry="6" transform="rotate(240)"/>
+                                <ellipse cy="-6.4" rx="3.4" ry="6" transform="rotate(300)"/>
+                            </g>
+                            <g fill="none" stroke="#7a5c62" stroke-opacity=".55" stroke-width=".45">
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4"/>
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4" transform="rotate(60)"/>
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4" transform="rotate(120)"/>
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4" transform="rotate(180)"/>
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4" transform="rotate(240)"/>
+                                <ellipse cy="-6.4" rx="2.2" ry="4.4" transform="rotate(300)"/>
+                            </g>
+                            <circle r="2.6" fill="#1a1215" stroke="#7a5c62" stroke-opacity=".5" stroke-width=".4"/>
+                        </g>
+                        <path d="M30,30 C34,38 42,36 46,46 M16,16 C12,8 4,10 0,0 M0,30 C6,28 8,36 14,40 M46,16 C40,18 38,10 32,6"
+                              fill="none" stroke="#0b0809" stroke-width="1.1"/>
+                        <g fill="#0b0809">
+                            <ellipse cx="38" cy="36" rx="1.6" ry="3.4" transform="rotate(-40 38 36)"/>
+                            <ellipse cx="8" cy="10" rx="1.6" ry="3.4" transform="rotate(-40 8 10)"/>
+                            <ellipse cx="9" cy="35" rx="1.5" ry="3" transform="rotate(50 9 35)"/>
+                            <ellipse cx="38" cy="11" rx="1.5" ry="3" transform="rotate(50 38 11)"/>
+                            <circle cx="0" cy="0" r="2.6"/><circle cx="46" cy="0" r="2.6"/>
+                            <circle cx="0" cy="46" r="2.6"/><circle cx="46" cy="46" r="2.6"/>
+                        </g>
+                    </pattern>
+                    <pattern id="floralB" width="30" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(28) translate(9 5)">
+                        <g transform="translate(15 15)" fill="#0b0809">
+                            <ellipse cy="-3.4" rx="1.8" ry="3"/>
+                            <ellipse cy="-3.4" rx="1.8" ry="3" transform="rotate(90)"/>
+                            <ellipse cy="-3.4" rx="1.8" ry="3" transform="rotate(180)"/>
+                            <ellipse cy="-3.4" rx="1.8" ry="3" transform="rotate(270)"/>
+                        </g>
+                        <g fill="#0b0809"><circle cx="3" cy="4" r=".8"/><circle cx="25" cy="27" r=".8"/><circle cx="26" cy="6" r=".7"/></g>
+                    </pattern>
+
+                    <linearGradient id="goldG" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#f3dcaa"/>
+                        <stop offset=".5" stop-color="#c9a96e"/>
+                        <stop offset="1" stop-color="#8a6c3c"/>
+                    </linearGradient>
+
+                    <!-- 上下渐隐 -->
+                    <linearGradient id="fadeV" gradientUnits="userSpaceOnUse" x1="0" y1="10" x2="0" y2="780">
+                        <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+                        <stop offset=".1" stop-color="#fff" stop-opacity="1"/>
+                        <stop offset=".8" stop-color="#fff" stop-opacity="1"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                    </linearGradient>
+                    <mask id="fadeBody" maskUnits="userSpaceOnUse" x="0" y="0" width="500" height="800">
+                        <rect width="500" height="800" fill="url(#fadeV)"/>
+                    </mask>
+
+                    <filter id="lsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+                    <filter id="lsofter" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+                    <filter id="lhair" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter>
+
+                    <!-- 半边（右）：光影 + 内衣 -->
+                    <g id="halfR">
+                        <g clip-path="url(#bodyClip)">
+                            <!-- 腰侧收紧阴影 -->
+                            <path d="M378,206 C368,300 350,380 342,430 C338,470 348,520 368,580 C378,620 382,660 380,720"
+                                  fill="none" stroke="#8a5a50" stroke-opacity=".4" stroke-width="24" filter="url(#lsofter)"/>
+                            <!-- 锁骨 -->
+                            <path d="M262,98 C290,106 322,102 352,108" fill="none" stroke="#a87868" stroke-opacity=".35" stroke-width="2.4" filter="url(#lsoft)"/>
+                            <path d="M262,94 C290,101 322,97 352,103" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.4" filter="url(#lsoft)"/>
+                            <!-- 肩头高光 -->
+                            <ellipse cx="370" cy="128" rx="18" ry="11" fill="#fff" fill-opacity=".3" filter="url(#lsoft)"/>
+                            <!-- 胸上缘柔光与轮廓 -->
+                            <path d="M262,252 C282,228 330,218 362,234" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="12" filter="url(#lsoft)"/>
+                            <ellipse cx="312" cy="268" rx="62" ry="50" fill="url(#mound)"/>
+                            <path d="M374,224 C384,250 384,284 374,312" fill="none" stroke="#8a5a50" stroke-opacity=".35" stroke-width="10" filter="url(#lsoft)"/>
+                            <path d="M262,246 C268,236 278,230 290,228" fill="none" stroke="#9a6a5c" stroke-opacity=".3" stroke-width="4" filter="url(#lsoft)"/>
+                            <!-- 下胸围阴影 -->
+                            <path d="M252,368 C290,382 340,378 374,354" fill="none" stroke="#7a4a40" stroke-opacity=".45" stroke-width="8" filter="url(#lsoft)"/>
+                            <!-- 腹斜线 -->
+                            <path d="M304,392 C298,432 292,470 284,506" fill="none" stroke="#9a6a5c" stroke-opacity=".2" stroke-width="9" filter="url(#lsoft)"/>
+                            <!-- 胯部高光 -->
+                            <path d="M352,560 C366,600 370,640 368,700" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="16" filter="url(#lsoft)"/>
+                            <!-- 大腿内侧 -->
+                            <path d="M258,712 C260,740 262,770 264,800" fill="none" stroke="#7a4a40" stroke-opacity=".45" stroke-width="5" filter="url(#lsoft)"/>
+
+                            <!-- 高腰蕾丝裤 -->
+                            <use href="#briefR" fill="#0b0809" style="fill-opacity: var(--lace-op)"/>
+                            <use href="#briefR" fill="url(#mesh)"/>
+                            <use href="#briefR" fill="url(#floralB)" opacity=".55"/>
+                            <use href="#briefR" fill="url(#floral)" opacity=".92"/>
+                            <use href="#briefR" fill="url(#briefSheen)"/>
+                            <!-- 裤腰 -->
+                            <path d="M250,512 C290,514 334,508 382,496" fill="none" stroke="#0b0809" stroke-width="9"/>
+                            <path d="M250,508.5 C290,510.5 334,504.5 382,492.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".8"/>
+                            <!-- 腿口睫毛边 -->
+                            <use href="#legOpenR" fill="none" stroke="#0b0809" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 6"/>
+                            <use href="#legOpenR" fill="none" stroke="#0b0809" stroke-width="7" stroke-dasharray=".6 2" opacity=".75" transform="translate(2 1.5)"/>
+                            <!-- 吊袜带 + 金扣 -->
+                            <path d="M336,516 C338,600 340,690 342,800" fill="none" stroke="#0b0809" stroke-width="4"/>
+                            <path d="M334.6,516 C336.6,600 338.6,690 340.6,800" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width=".6"/>
+                            <rect x="334" y="618" width="11" height="8" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.6"/>
+                            <circle cx="340" cy="672" r="4" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
+                            <!-- 下围 -->
+                            <use href="#bandR" fill="#0b0809" fill-opacity=".9"/>
+                            <use href="#bandR" fill="url(#floralB)" opacity=".6"/>
+                            <path d="M250,355 C286,371 338,369 382,345" fill="none" stroke="#0b0809" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="0 5"/>
+                        </g>
+
+                        <!-- 肩带 + 调节扣 -->
+                        <path d="M358,242 C354,190 342,132 330,94" fill="none" stroke="#0b0809" stroke-width="4.5" stroke-linecap="round"/>
+                        <path d="M356.6,240 C352.6,190 340.6,132 328.6,94" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".8"/>
+                        <rect x="341" y="168" width="10" height="7" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.5" transform="rotate(-15 346 171)"/>
+
+
+                        <!-- 罩杯：透肤底 + 网眼 + 花卉 + 缎光 -->
+                        <use href="#cupR" fill="#0b0809" style="fill-opacity: var(--lace-op)"/>
+                        <use href="#cupR" fill="url(#mesh)"/>
+                        <use href="#cupR" fill="url(#floralB)" opacity=".55"/>
+                        <use href="#cupR" fill="url(#floral)" opacity=".95"/>
+                        <use href="#cupR" fill="url(#cupSheen)"/>
+                        <path d="M304,246 C314,282 314,316 304,354" fill="none" stroke="#000" stroke-opacity=".6" stroke-width="1.2"/>
+                        <path d="M305.4,246 C315.4,282 315.4,316 305.4,354" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width=".6"/>
+                        <!-- 钢圈 -->
+                        <path d="M364,334 C342,356 290,358 262,338" fill="none" stroke="#000" stroke-width="2.6"/>
+                        <!-- 杯口：扇贝边 + 睫毛边 -->
+                        <use href="#cupEdgeR" fill="none" stroke="#0b0809" stroke-width="4.4" stroke-linecap="round" stroke-dasharray="0 5"/>
+                        <use href="#cupEdgeR" fill="none" stroke="#0b0809" stroke-width="7" stroke-dasharray=".6 2.1" opacity=".8" transform="translate(0 -3.5)"/>
+                        <use href="#cupEdgeR" fill="none" stroke="#c9a96e" stroke-opacity=".35" stroke-width=".7" transform="translate(0 1.5)"/>
+                    </g>
+                </defs>
+
+                <!-- 聚光 -->
+                <ellipse cx="250" cy="380" rx="230" ry="360" fill="#8a5260" opacity=".35" filter="url(#lsofter)"/>
+
+                <g mask="url(#fadeBody)">
+                    <use href="#body" fill="url(#bodySkin)"/>
+                    <use href="#halfR"/>
+                    <use href="#halfR" transform="translate(500 0) scale(-1 1)"/>
+
+                    <!-- 中线：颈窝、乳沟、肚脐 -->
+                    <g clip-path="url(#bodyClip)">
+                        <path d="M226,40 C230,60 232,72 236,84 M274,40 C270,60 268,72 264,84" fill="none" stroke="#a87868" stroke-opacity=".35" stroke-width="3" filter="url(#lsoft)"/>
+                        <ellipse cx="250" cy="104" rx="10" ry="5" fill="#9a6a5c" fill-opacity=".4" filter="url(#lsoft)"/>
+                        <path d="M250,250 C246,272 246,302 250,332" fill="none" stroke="#6a3e36" stroke-opacity=".55" stroke-width="7" filter="url(#lsoft)"/>
+                        <path d="M250,262 C248,282 248,304 250,326" fill="none" stroke="#5a3028" stroke-opacity=".45" stroke-width="1.6" filter="url(#lhair)"/>
+                        <path d="M250,384 L250,456" stroke="#9a6a5c" stroke-opacity=".16" stroke-width="7" filter="url(#lsoft)"/>
+                        <ellipse cx="250" cy="472" rx="2.6" ry="5.5" fill="#7a4a40" fill-opacity=".65" filter="url(#lhair)"/>
+                        <ellipse cx="250" cy="480" rx="4" ry="2" fill="#fff" fill-opacity=".35" filter="url(#lhair)"/>
+                    </g>
+
+                    <!-- 鸡心 + 蝴蝶结 + 金色吊坠 -->
+                    <path d="M244,334 L244,296 C246,288 254,288 256,296 L256,334 Z" fill="#0b0809"/>
+                    <g transform="translate(250 300)">
+                        <path d="M0,0 C-4,-5 -11,-6 -11,0 C-11,6 -4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".5"/>
+                        <path d="M0,0 C4,-5 11,-6 11,0 C11,6 4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".5"/>
+                        <circle r="2" fill="#1a1215"/>
+                        <line x1="0" y1="2" x2="0" y2="9" stroke="url(#goldG)" stroke-width=".8"/>
+                        <path d="M0,9 L-2.6,12.5 L0,16 L2.6,12.5 Z" fill="url(#goldG)"/>
+                    </g>
+                    <g transform="translate(250 513) scale(.7)">
+                        <path d="M0,0 C-4,-5 -11,-6 -11,0 C-11,6 -4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".6"/>
+                        <path d="M0,0 C4,-5 11,-6 11,0 C11,6 4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".6"/>
+                        <circle r="2.2" fill="url(#goldG)"/>
+                    </g>
+                </g>
+            </svg>
+
             <span class="vertical">Noir · 20 Denier · Seamed</span>
-            <span class="tag tag-lace"><i></i>蕾丝腰边</span>
-            <span class="tag tag-seam"><i></i>古典后缝线</span>
-            <span class="tag tag-heel"><i></i>漆皮细跟</span>
+            <span class="tag tag-lace" data-for="legs"><i></i>蕾丝腰边</span>
+            <span class="tag tag-seam" data-for="legs"><i></i>古典后缝线</span>
+            <span class="tag tag-heel" data-for="legs"><i></i>漆皮细跟</span>
+            <span class="tag tag-trim" data-for="lingerie"><i></i>睫毛蕾丝杯口</span>
+            <span class="tag tag-cup" data-for="lingerie"><i></i>法式花卉蕾丝</span>
+            <span class="tag tag-brief" data-for="lingerie"><i></i>高腰蕾丝 · 吊袜扣</span>
         </section>
     </main>
 
@@ -753,7 +1038,14 @@
             40: { edge: "#120d0f", mid: "#3c2d30", hi: "#745c58" },
             80: { edge: "#0a0809", mid: "#211b1d", hi: "#403739" }
         };
+        const laceOp = { 10: .3, 20: .5, 40: .7, 80: .88 };
+        const labels = {
+            legs: (d) => `Noir · ${d} Denier · Seamed`,
+            lingerie: (d) => `Chantilly Lace · ${d} Denier`
+        };
+        let denier = 20;
         const root = document.documentElement;
+        const stage = document.querySelector(".stage");
         const buttons = document.querySelectorAll(".denier button");
         const label = document.querySelector(".vertical");
 
@@ -767,7 +1059,23 @@
                 root.style.setProperty("--s-edge", t.edge);
                 root.style.setProperty("--s-mid", t.mid);
                 root.style.setProperty("--s-hi", t.hi);
-                label.textContent = `Noir · ${btn.dataset.d} Denier · Seamed`;
+                root.style.setProperty("--lace-op", laceOp[btn.dataset.d]);
+                denier = btn.dataset.d;
+                label.textContent = labels[stage.dataset.view](denier);
+            });
+        });
+
+        // 腿部 / 上身 切换
+        const viewButtons = document.querySelectorAll(".views button");
+        viewButtons.forEach((btn) => {
+            btn.addEventListener("click", () => {
+                viewButtons.forEach((b) => b.setAttribute("aria-pressed", String(b === btn)));
+                stage.dataset.view = btn.dataset.view;
+                label.textContent = labels[btn.dataset.view](denier);
+                // 手机上插画在按钮上方，切换后滚回插画
+                if (window.matchMedia("(max-width: 900px)").matches) {
+                    stage.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
             });
         });
     </script>
