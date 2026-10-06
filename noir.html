@@ -10,20 +10,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0d0a0c;
-            --bg-2: #160f13;
+            --bg: #1a1316;
+            --bg-2: #251a1f;
             --ink: #f1e9e2;
             --ink-soft: #b9aca3;
-            --ink-faint: #7a6d68;
+            --ink-faint: #978780;
             --line: rgba(241, 233, 226, .12);
             --wine: #7a1e2c;
-            --wine-glow: rgba(122, 30, 44, .45);
+            --wine-glow: rgba(160, 48, 66, .55);
             --gold: #c9a96e;
             --gold-soft: rgba(201, 169, 110, .18);
             /* 丝袜色调（由丹尼尔切换） */
-            --s-edge: #0a0809;
-            --s-mid: #3a2724;
-            --s-hi: #6e4c43;
+            --s-edge: #181113;
+            --s-mid: #4e3530;
+            --s-hi: #8c6656;
             --serif-en: "Cormorant Garamond", "Times New Roman", serif;
             --serif-zh: "Noto Serif SC", "Songti SC", "STSong", serif;
             color-scheme: dark;
@@ -35,7 +35,7 @@
             min-height: 100vh;
             background:
                 radial-gradient(60% 50% at 70% 35%, var(--wine-glow), transparent 70%),
-                radial-gradient(40% 40% at 10% 90%, rgba(201, 169, 110, .07), transparent 70%),
+                radial-gradient(40% 40% at 10% 90%, rgba(201, 169, 110, .1), transparent 70%),
                 var(--bg);
             color: var(--ink);
             font-family: var(--serif-zh);
@@ -218,8 +218,10 @@
             position: absolute;
             inset: 4% 10% 0 10%;
             border-radius: 999px 999px 0 0;
-            background: linear-gradient(180deg, #2a1a1f 0%, #1a1115 60%, #140d10 100%);
-            box-shadow: inset 0 0 0 1px rgba(201, 169, 110, .22), 0 40px 120px rgba(0, 0, 0, .6);
+            background:
+                radial-gradient(70% 45% at 50% 18%, rgba(255, 220, 200, .12), transparent 70%),
+                linear-gradient(180deg, #4a2e36 0%, #35222a 55%, #271a1f 100%);
+            box-shadow: inset 0 0 0 1px rgba(201, 169, 110, .3), 0 40px 120px rgba(0, 0, 0, .45);
             overflow: hidden;
         }
 
@@ -349,7 +351,7 @@
             height: auto;
             aspect-ratio: 1;
             margin-bottom: 24px;
-            background: #120c0f;
+            background: #20161a;
         }
 
         .card .num {
@@ -467,7 +469,10 @@
                         C268,848 250,834 238,822
                         C220,810 196,792 176,764 Z"/>
                     <!-- 细跟 -->
-                    <path id="heel" d="M177,800 C186,832 190,862 191,890 L197,890 C198,862 201,836 212,818 Z"/>
+                    <path id="heel" d="M178,804 C188,834 192,862 193,885 L197.6,885 C198,860 201,838 213,820 Z"/>
+                    <!-- 脚踝细带 -->
+                    <path id="strap" d="M181,737 C195,743 211,749 226,753 L224,760 C209,756 194,750 180,744 Z"/>
+                    <path id="strapBack" d="M176,768 C178,758 180,748 181,739 L186,741 C185,750 183,759 182,770 Z"/>
 
                     <clipPath id="legClip"><use href="#leg"/></clipPath>
 
@@ -482,8 +487,8 @@
 
                     <!-- 后腿更暗 -->
                     <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0" stop-color="#000" stop-opacity=".55"/>
-                        <stop offset="1" stop-color="#000" stop-opacity=".3"/>
+                        <stop offset="0" stop-color="#000" stop-opacity=".45"/>
+                        <stop offset="1" stop-color="#000" stop-opacity=".22"/>
                     </linearGradient>
 
                     <!-- 针织纹理 -->
@@ -503,9 +508,20 @@
 
                     <!-- 漆皮高光 -->
                     <linearGradient id="patent" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0" stop-color="#2b2226"/>
-                        <stop offset=".5" stop-color="#0b0809"/>
-                        <stop offset="1" stop-color="#000"/>
+                        <stop offset="0" stop-color="#4a3c42"/>
+                        <stop offset=".3" stop-color="#1a1417"/>
+                        <stop offset=".72" stop-color="#060505"/>
+                        <stop offset="1" stop-color="#2a2125"/>
+                    </linearGradient>
+                    <linearGradient id="heelGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0" stop-color="#050404"/>
+                        <stop offset=".45" stop-color="#3d3237"/>
+                        <stop offset="1" stop-color="#050404"/>
+                    </linearGradient>
+                    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#f3dcaa"/>
+                        <stop offset=".5" stop-color="#c9a96e"/>
+                        <stop offset="1" stop-color="#8a6c3c"/>
                     </linearGradient>
 
                     <!-- 流动光泽 -->
@@ -538,9 +554,9 @@
                             <rect x="100" y="-60" width="260" height="960" fill="url(#knit)"/>
                             <!-- 胫骨高光 -->
                             <path d="M244,60 C246,220 236,330 230,390 C222,480 214,600 216,780 C230,800 270,836 320,864"
-                                  fill="none" stroke="#ffe6d2" stroke-opacity=".22" stroke-width="9" filter="url(#soft)"/>
+                                  fill="none" stroke="#ffe6d2" stroke-opacity=".3" stroke-width="9" filter="url(#soft)"/>
                             <path d="M240,80 C242,220 233,330 227,390 C220,480 212,600 212,740"
-                                  fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="2"/>
+                                  fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="2"/>
                             <!-- 膝盖光点 -->
                             <ellipse cx="226" cy="388" rx="10" ry="22" fill="#ffe6d2" fill-opacity=".1" filter="url(#soft)"/>
                             <!-- 小腿背光 -->
@@ -567,27 +583,46 @@
                         <use href="#leg" fill="none" stroke="#ffe0cc" stroke-opacity=".08" stroke-width="1"/>
 
                         <!-- 高跟鞋 -->
-                        <use href="#heel" fill="#0a0708"/>
-                        <rect x="190" y="885" width="7.5" height="5" rx="1" fill="#c9a96e"/>
+                        <!-- 细跟：渐变 + 前缘高光 + 香槟金鞋跟头 -->
+                        <use href="#heel" fill="url(#heelGrad)"/>
+                        <path d="M185,816 C191,840 194,862 195,882" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width=".8"/>
+                        <rect x="192.6" y="884" width="5.4" height="6" rx="1" fill="url(#goldGrad)"/>
+                        <!-- 酒红鞋底边 -->
+                        <path d="M184,811.5 C218,831.5 262,871.5 300,888.5 C330,895.5 358,895.5 368,890.5" fill="none" stroke="#7a2232" stroke-width="2.2" stroke-linecap="round"/>
+                        <!-- 鞋身 -->
                         <use href="#shoe" fill="url(#patent)"/>
-                        <path d="M196,826 C240,856 290,882 345,886" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
-                        <path d="M250,842 C272,852 310,866 352,880" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2.4" stroke-linecap="round" filter="url(#soft)"/>
-                        <path d="M178,768 C196,788 216,806 238,822" fill="none" stroke="#c9a96e" stroke-opacity=".5" stroke-width="1"/>
-                        <path d="M178,776 C174,790 176,800 184,808" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="1.6" stroke-linecap="round"/>
+                        <!-- 鞋口裸色内衬 -->
+                        <path d="M176,764 C192,786 210,802 230,816 L228,818.5 C207,806 189,790 177.5,769 Z" fill="#c9a08a" fill-opacity=".85"/>
+                        <path d="M176,764 C192,786 210,802 230,816 C246,830 264,846 282,856" fill="none" stroke="#f1d7c6" stroke-opacity=".45" stroke-width=".6"/>
+                        <!-- 漆皮反光 -->
+                        <path d="M252,846 C276,858 314,872 356,882" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="5" stroke-linecap="round" filter="url(#soft)"/>
+                        <path d="M262,852 C284,862 316,873 352,881" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.2" stroke-linecap="round"/>
+                        <ellipse cx="360" cy="886" rx="4" ry="1.4" fill="#fff" fill-opacity=".7"/>
+                        <path d="M180,778 C176,792 178,802 186,810" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="1.4" stroke-linecap="round"/>
+                        <!-- 脚踝细带 + 金扣 -->
+                        <use href="#strapBack" fill="url(#patent)"/>
+                        <use href="#strap" fill="url(#patent)"/>
+                        <path d="M182,738.5 C196,744.5 211,750.5 225,754.5" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width=".7"/>
+                        <g transform="rotate(20 214 753)">
+                            <rect x="210" y="748.5" width="8" height="9" rx="1.2" fill="none" stroke="url(#goldGrad)" stroke-width="1.6"/>
+                            <line x1="214" y1="749" x2="214" y2="757" stroke="#c9a96e" stroke-width=".9"/>
+                        </g>
                     </g>
                 </defs>
 
                 <!-- 聚光与地面投影 -->
-                <ellipse cx="250" cy="430" rx="190" ry="380" fill="#3a1f26" opacity=".45" filter="url(#softer)"/>
+                <ellipse cx="250" cy="430" rx="190" ry="380" fill="#7a4450" opacity=".4" filter="url(#softer)"/>
+                <ellipse cx="250" cy="120" rx="150" ry="140" fill="#ffd9c4" opacity=".08" filter="url(#softer)"/>
                 <ellipse cx="240" cy="892" rx="170" ry="10" fill="#000" opacity=".7" filter="url(#softer)"/>
-                <line x1="40" y1="890" x2="460" y2="890" stroke="#c9a96e" stroke-opacity=".18"/>
+                <line x1="40" y1="890" x2="460" y2="890" stroke="#c9a96e" stroke-opacity=".3"/>
 
                 <g mask="url(#fade)">
                     <!-- 后腿 -->
                     <g transform="translate(-10,5) rotate(6 200 -60)">
                         <use href="#legFull"/>
                         <use href="#leg" fill="url(#shade)"/>
-                        <use href="#shoe" fill="#000" fill-opacity=".35"/>
+                        <use href="#shoe" fill="#000" fill-opacity=".3"/>
+                        <use href="#strap" fill="#000" fill-opacity=".3"/>
                     </g>
                     <!-- 前腿 -->
                     <g transform="translate(48,1) rotate(-2.5 200 -60)">
@@ -668,14 +703,17 @@
                     </defs>
                     <path d="M40,40 C34,70 38,100 58,120 C90,138 130,160 170,168 C182,170 190,164 186,156 C180,150 166,146 150,140 C120,128 96,110 80,92 C66,80 54,64 40,40 Z" fill="url(#patentBig)"/>
                     <path d="M44,112 C52,136 60,160 62,188 L72,188 C72,160 72,140 80,126 Z" fill="#0a0708"/>
-                    <rect x="61" y="184" width="12" height="6" rx="1" fill="#c9a96e"/>
+                    <rect x="61" y="183" width="11" height="7" rx="1" fill="#c9a96e"/>
+                    <path d="M40,40 C60,70 84,88 102,98" fill="none" stroke="#c9a08a" stroke-width="3"/>
+                    <path d="M34,22 C56,30 80,38 104,44 L101,54 C78,48 54,40 32,32 Z" fill="url(#patentBig)"/>
+                    <rect x="74" y="32" width="12" height="14" rx="2" fill="none" stroke="#c9a96e" stroke-width="2" transform="rotate(18 80 39)"/>
                     <path d="M94,104 C116,120 146,136 176,150" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="3" stroke-linecap="round"/>
                     <path d="M42,48 C38,70 42,92 54,106" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="2" stroke-linecap="round"/>
                     <line x1="20" y1="190" x2="190" y2="190" stroke="#c9a96e" stroke-opacity=".3"/>
                 </svg>
                 <div class="num">03</div>
                 <h3>漆皮细跟</h3>
-                <p>十厘米细跟，鞋跟以香槟金包头收尾，镜面漆皮映出一抹夜光。</p>
+                <p>十厘米细跟配脚踝细带与香槟金扣，酒红鞋底边、裸色内衬，镜面漆皮映出一抹夜光。</p>
             </article>
         </div>
     </section>
@@ -685,10 +723,10 @@
     <script>
         // 丹尼尔 → 丝袜色调：数值越高越不透肤
         const tones = {
-            10: { edge: "#140e0e", mid: "#5a3d36", hi: "#9a7262" },
-            20: { edge: "#0a0809", mid: "#3a2724", hi: "#6e4c43" },
-            40: { edge: "#070506", mid: "#241918", hi: "#46302c" },
-            80: { edge: "#050404", mid: "#141011", hi: "#262022" }
+            10: { edge: "#261a19", mid: "#73514a", hi: "#b88e7c" },
+            20: { edge: "#181113", mid: "#4e3530", hi: "#8c6656" },
+            40: { edge: "#100b0c", mid: "#33242a", hi: "#5e443c" },
+            80: { edge: "#0a0808", mid: "#1e1819", hi: "#3a3033" }
         };
         const root = document.documentElement;
         const buttons = document.querySelectorAll(".denier button");
