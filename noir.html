@@ -285,13 +285,15 @@
         .tag-trim { top: 26%; left: -9%; }
         .tag-cup { top: 37%; left: -10%; }
         .tag-brief { top: 63%; left: -9%; }
+        .tag-bstrap { top: 24%; left: -9%; }
+        .tag-hooks { top: 40%; left: -10%; }
+        .tag-bbrief { top: 74%; left: -9%; }
 
         /* 视图切换 */
         .stage .figure, .stage .tag { transition: opacity .7s ease, transform .9s cubic-bezier(.2, .7, .2, 1); }
-        .stage[data-view="legs"] [data-for="lingerie"],
-        .stage[data-view="legs"] .figure.lingerie,
-        .stage[data-view="lingerie"] [data-for="legs"],
-        .stage[data-view="lingerie"] .figure.legs {
+        .stage[data-view="legs"] [data-for]:not([data-for="legs"]),
+        .stage[data-view="lingerie"] [data-for]:not([data-for="lingerie"]),
+        .stage[data-view="back"] [data-for]:not([data-for="back"]) {
             opacity: 0;
             transform: translateY(14px);
             pointer-events: none;
@@ -439,7 +441,7 @@
             .details-head { flex-direction: column; align-items: start; }
             .cards { grid-template-columns: 1fr; }
             .tag::after { width: 24px; }
-            .tag-trim, .tag-cup, .tag-brief { display: none; }
+            .tag-trim, .tag-cup, .tag-brief, .tag-bstrap, .tag-hooks, .tag-bbrief { display: none; }
         }
     </style>
 </head>
@@ -469,6 +471,7 @@
                 <div class="views" role="group" aria-label="切换展示">
                     <button type="button" data-view="legs" aria-pressed="true">腿部 · 丝袜<small>Legs</small></button>
                     <button type="button" data-view="lingerie" aria-pressed="false">上身 · 蕾丝内衣<small>Lingerie</small></button>
+                    <button type="button" data-view="back" aria-pressed="false">背面 · 蕾丝内衣<small>Back</small></button>
                 </div>
                 <div class="denier-label">Denier · 丹尼尔 / 透度</div>
                 <div class="denier" role="group" aria-label="选择丹尼尔">
@@ -488,7 +491,7 @@
         <section class="stage rise d3" data-view="legs" aria-label="黑丝与蕾丝内衣的时装插画">
             <div class="corners"></div>
 
-            <svg class="figure legs" viewBox="0 -60 500 1000" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+            <svg class="figure legs" data-for="legs" viewBox="0 -60 500 1000" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
                 <defs>
                     <!-- 腿部轮廓（侧面，朝右） -->
                     <path id="leg" d="M126,-60
@@ -706,7 +709,7 @@
             </svg>
 
             <!-- 上身：法式蕾丝内衣 -->
-            <svg class="figure lingerie" viewBox="0 0 500 800" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <svg class="figure lingerie" data-for="lingerie" viewBox="0 0 500 800" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                 <defs>
                     <path id="body" d="M218,20 L282,20
                         C282,50 284,66 290,76
@@ -945,7 +948,7 @@
                         <!-- 前臂与手压在大腿之上 -->
                         <use href="#armR" fill="url(#skinU)" clip-path="url(#lowerArmClip)"/>
                         <!-- 手臂光影（顶部渐入，避免肩部接缝） -->
-                        <g clip-path="url(#armClip)" mask="url(#armFade)">
+                        <g id="armShadeR" clip-path="url(#armClip)" mask="url(#armFade)">
                             <path d="M428,160 C436,214 440,300 432,364 C426,390 424,404 426,414 C432,450 432,490 428,530 C424,566 420,592 419,610 C426,632 430,660 428,684"
                                   fill="none" stroke="#a87466" stroke-opacity=".42" stroke-width="12" filter="url(#lsoft)"/>
                             <path d="M386,212 C381,250 378,300 384,380 C388,400 392,430 390,460 C390,500 392,560 395,610 C395,630 394,646 392,656"
@@ -985,7 +988,7 @@
                         </g>
 
                         <!-- 肩部整体高光（躯干 + 手臂连成一体） -->
-                        <g clip-path="url(#upperClip)">
+                        <g id="shoulderHiR" clip-path="url(#upperClip)">
                             <ellipse cx="392" cy="140" rx="34" ry="28" fill="#fff" fill-opacity=".26" filter="url(#lsofter)"/>
                             <path d="M432,170 C436,200 438,230 438,260" fill="none" stroke="#a87466" stroke-opacity=".3" stroke-width="10" filter="url(#lsoft)"/>
                         </g>
@@ -1048,13 +1051,148 @@
                 </g>
             </svg>
 
+            <!-- 背面：蕾丝内衣后视 -->
+            <svg class="figure back" data-for="back" viewBox="0 0 500 800" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                    <path id="bandBackR" d="M250,312 C290,318 340,318 388,302 L390,330 C340,346 290,346 250,340 Z"/>
+                    <path id="briefBackR" d="M250,500 C290,502 336,498 384,488 L390,566 C372,620 332,684 284,700 C268,705 258,705 250,702 Z"/>
+                    <path id="foldR" d="M390,566 C372,620 332,684 284,700 C268,705 258,705 250,702"/>
+                    <radialGradient id="glute" cx=".5" cy=".42" r=".55">
+                        <stop offset="0" stop-color="#fff" stop-opacity=".38"/>
+                        <stop offset=".65" stop-color="#fff" stop-opacity=".08"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                    </radialGradient>
+                    <radialGradient id="gluteLace" cx=".5" cy=".4" r=".6">
+                        <stop offset="0" stop-color="#ffe9e0" stop-opacity=".2"/>
+                        <stop offset=".6" stop-color="#ffe9e0" stop-opacity="0"/>
+                        <stop offset="1" stop-color="#000" stop-opacity=".4"/>
+                    </radialGradient>
+
+                    <g id="halfBackR">
+                        <!-- 手臂底色（与躯干同色，肩部无缝） -->
+                        <use href="#armR" fill="url(#skinU)"/>
+
+                        <g clip-path="url(#bodyClip)">
+                            <!-- 躯干侧面与腰线 -->
+                            <path d="M376,214 C372,260 362,340 340,420" fill="none" stroke="#a87466" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
+                            <path d="M378,206 C368,300 350,380 342,430 C338,470 348,520 368,580 C378,620 382,660 380,720"
+                                  fill="none" stroke="#8a5a50" stroke-opacity=".4" stroke-width="24" filter="url(#lsofter)"/>
+                            <!-- 斜方肌与肩胛骨 -->
+                            <path d="M262,92 C300,98 340,106 376,122" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="12" filter="url(#lsoft)"/>
+                            <ellipse cx="330" cy="190" rx="34" ry="44" fill="#fff" fill-opacity=".2" filter="url(#lsoft)"/>
+                            <path d="M300,160 C306,204 314,244 330,264 C344,256 356,236 362,212" fill="none" stroke="#a87466" stroke-opacity=".2" stroke-width="12" filter="url(#lsofter)"/>
+                            <!-- 背阔、腰背肌 -->
+                            <path d="M284,360 C288,400 286,440 278,480" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="20" filter="url(#lsofter)"/>
+                            <path d="M262,370 C262,410 262,446 260,470" fill="none" stroke="#a87466" stroke-opacity=".14" stroke-width="10" filter="url(#lsofter)"/>
+                            <!-- 腰窝 -->
+                            <ellipse cx="274" cy="478" rx="4" ry="6.5" fill="#9a6a5c" fill-opacity=".45" filter="url(#lhair)"/>
+                            <!-- 胯部高光 -->
+                            <path d="M356,560 C372,600 380,640 380,700" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="16" filter="url(#lsoft)"/>
+
+                            <!-- 大腿后侧丝袜 + 袜口 + 后缝线 -->
+                            <g transform="translate(0 30)">
+                                <path d="M250,696 C300,692 350,688 404,684 L404,800 L250,800 Z" style="fill: var(--s-mid)" fill-opacity=".55"/>
+                                <path d="M250,696 C300,692 350,688 404,684 L404,800 L250,800 Z" fill="url(#mesh)" opacity=".5"/>
+                                <path d="M254,712 C258,740 258,770 258,800 M384,700 C388,740 388,770 386,800" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
+                                <path d="M318,712 C320,740 322,770 323,800" fill="none" stroke="#000" stroke-width="2" stroke-opacity=".85"/>
+                                <path d="M319.4,712 C321.4,740 323.4,770 324.4,800" fill="none" stroke="#c9a96e" stroke-width=".6" stroke-opacity=".4"/>
+                                <path d="M250,694 C300,690 350,686 404,682 L404,708 C350,712 300,716 250,720 Z" fill="#0b0809" fill-opacity=".88"/>
+                                <path d="M250,694 C300,690 350,686 404,682 L404,708 C350,712 300,716 250,720 Z" fill="url(#floralB)" opacity=".7"/>
+                                <path d="M250,720 C300,716 350,712 404,708" fill="none" stroke="#0b0809" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 5"/>
+                                <path d="M250,695 C300,691 350,687 404,683" fill="none" stroke="#c9a96e" stroke-opacity=".35" stroke-width=".7"/>
+                            </g>
+
+                            <!-- 臀部圆润体积（透过蕾丝可见） -->
+                            <ellipse cx="318" cy="600" rx="66" ry="78" fill="url(#glute)"/>
+                            <path d="M262,708 C292,708 332,694 370,650" fill="none" stroke="#7a4a40" stroke-opacity=".45" stroke-width="7" filter="url(#lsoft)"/>
+
+                            <!-- 全包臀蕾丝裤 -->
+                            <use href="#briefBackR" fill="#0b0809" style="fill-opacity: var(--lace-op)"/>
+                            <use href="#briefBackR" fill="url(#mesh)"/>
+                            <use href="#briefBackR" fill="url(#floralB)" opacity=".55"/>
+                            <use href="#briefBackR" fill="url(#floral)" opacity=".92"/>
+                            <ellipse cx="318" cy="598" rx="70" ry="84" fill="url(#gluteLace)"/>
+                            <!-- 裤腰 + 腿口睫毛边 -->
+                            <path d="M250,504 C290,506 336,502 386,492" fill="none" stroke="#0b0809" stroke-width="9"/>
+                            <path d="M250,500.5 C290,502.5 336,498.5 386,488.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".8"/>
+                            <use href="#foldR" fill="none" stroke="#0b0809" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 6"/>
+                            <use href="#foldR" fill="none" stroke="#0b0809" stroke-width="7" stroke-dasharray=".6 2" opacity=".75" transform="translate(0 2.5)"/>
+
+                            <!-- 后吊袜带：落在大腿后侧，金扣夹住袜口 -->
+                            <path d="M318,506 C320,600 320,670 318,722" fill="none" stroke="#0b0809" stroke-width="4.2" stroke-linecap="round"/>
+                            <path d="M316.6,506 C318.6,600 318.6,670 316.6,722" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".6"/>
+                            <rect x="312.5" y="604" width="12" height="7" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
+                            <g transform="translate(318 726)">
+                                <circle cy="-4" r="3.6" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
+                                <path d="M-4,0 L4,0 L3,10 L-3,10 Z" fill="url(#goldG)"/>
+                            </g>
+
+                            <!-- 后比（背带） -->
+                            <use href="#bandBackR" fill="#0b0809" fill-opacity=".92"/>
+                            <use href="#bandBackR" fill="url(#floralB)" opacity=".6"/>
+                            <path d="M250,312 C290,318 340,318 388,302" fill="none" stroke="#0b0809" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="0 5"/>
+                            <path d="M250,340 C290,346 340,346 390,330" fill="none" stroke="#0b0809" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="0 5"/>
+                            <path d="M250,342 C290,350 340,350 390,334" fill="none" stroke="#7a4a40" stroke-opacity=".35" stroke-width="5" filter="url(#lsoft)"/>
+                        </g>
+
+                        <!-- 前臂与手、手臂光影、肩部高光（与正面共用） -->
+                        <use href="#armR" fill="url(#skinU)" clip-path="url(#lowerArmClip)"/>
+                        <use href="#armShadeR"/>
+                        <use href="#shoulderHiR"/>
+                        <path d="M395,607 C403,612 411,613 419,608" fill="none" stroke="url(#goldG)" stroke-width="1.5" stroke-linecap="round"/>
+
+                        <!-- 肩带：从后比延伸越过肩头 -->
+                        <path d="M318,314 C318,240 322,160 330,94" fill="none" stroke="#0b0809" stroke-width="4.5" stroke-linecap="round"/>
+                        <path d="M316.6,314 C316.6,240 320.6,160 328.6,94" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".8"/>
+                        <rect x="314" y="196" width="10" height="7" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.5" transform="rotate(-3 319 199)"/>
+                        <path d="M322,318 C322,248 326,170 334,96" fill="none" stroke="#7a4a40" stroke-opacity=".3" stroke-width="3" filter="url(#lhair)"/>
+                    </g>
+                </defs>
+
+                <!-- 聚光 -->
+                <ellipse cx="250" cy="380" rx="230" ry="360" fill="#8a5260" opacity=".35" filter="url(#lsofter)"/>
+
+                <g mask="url(#fadeBody)">
+                    <use href="#body" fill="url(#skinU)"/>
+                    <use href="#halfBackR"/>
+                    <use href="#halfBackR" transform="translate(500 0) scale(-1 1)"/>
+
+                    <!-- 中线：后颈、脊柱沟、臀缝 -->
+                    <g clip-path="url(#bodyClip)">
+                        <path d="M226,40 C230,60 232,72 236,84 M274,40 C270,60 268,72 264,84" fill="none" stroke="#a87868" stroke-opacity=".3" stroke-width="4" filter="url(#lsoft)"/>
+                        <ellipse cx="250" cy="96" rx="5" ry="4" fill="#fff" fill-opacity=".4" filter="url(#lhair)"/>
+                        <path d="M250,110 C250,200 251,300 250,470" fill="none" stroke="#9a6a5c" stroke-opacity=".26" stroke-width="10" filter="url(#lsofter)"/>
+                        <path d="M250,520 C250,580 250,640 250,700" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="5" filter="url(#lsoft)"/>
+                        <path d="M250,512 C250,580 250,640 250,702" fill="none" stroke="#000" stroke-opacity=".7" stroke-width="1.2"/>
+                    </g>
+
+                    <!-- 三排背扣 -->
+                    <rect x="238" y="311" width="24" height="31" rx="2" fill="#120c0e" stroke="#2a1e22" stroke-width=".8"/>
+                    <g fill="url(#goldG)">
+                        <rect x="241" y="316" width="5" height="2.2" rx="1"/><rect x="247.5" y="316" width="5" height="2.2" rx="1"/><rect x="254" y="316" width="5" height="2.2" rx="1"/>
+                        <rect x="241" y="325" width="5" height="2.2" rx="1"/><rect x="247.5" y="325" width="5" height="2.2" rx="1"/><rect x="254" y="325" width="5" height="2.2" rx="1"/>
+                        <rect x="241" y="334" width="5" height="2.2" rx="1"/><rect x="247.5" y="334" width="5" height="2.2" rx="1"/><rect x="254" y="334" width="5" height="2.2" rx="1"/>
+                    </g>
+                    <!-- 后腰蝴蝶结 -->
+                    <g transform="translate(250 504) scale(.8)">
+                        <path d="M0,0 C-4,-5 -11,-6 -11,0 C-11,6 -4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".6"/>
+                        <path d="M0,0 C4,-5 11,-6 11,0 C11,6 4,5 0,0 Z" fill="#0b0809" stroke="#6a5056" stroke-width=".6"/>
+                        <path d="M-1,1 L-5,12 M1,1 L5,12" stroke="#0b0809" stroke-width="1.6"/>
+                        <circle r="2.2" fill="url(#goldG)"/>
+                    </g>
+                </g>
+            </svg>
+
             <span class="vertical">Noir · 20 Denier · Seamed</span>
             <span class="tag tag-lace" data-for="legs"><i></i>蕾丝腰边</span>
             <span class="tag tag-seam" data-for="legs"><i></i>古典后缝线</span>
             <span class="tag tag-heel" data-for="legs"><i></i>漆皮细跟</span>
-            <span class="tag tag-trim" data-for="lingerie"><i></i>睫毛蕾丝杯口</span>
-            <span class="tag tag-cup" data-for="lingerie"><i></i>法式花卉蕾丝</span>
-            <span class="tag tag-brief" data-for="lingerie"><i></i>高腰蕾丝 · 吊袜扣</span>
+            <span class="tag tag-trim" data-for="lingerie"><i></i>睫毛杯口</span>
+            <span class="tag tag-cup" data-for="lingerie"><i></i>花卉蕾丝</span>
+            <span class="tag tag-brief" data-for="lingerie"><i></i>高腰吊袜</span>
+            <span class="tag tag-bstrap" data-for="back"><i></i>调节肩带</span>
+            <span class="tag tag-hooks" data-for="back"><i></i>三排背扣</span>
+            <span class="tag tag-bbrief" data-for="back"><i></i>全蕾丝包臀</span>
         </section>
     </main>
 
@@ -1151,7 +1289,8 @@
         const laceOp = { 10: .3, 20: .5, 40: .7, 80: .88 };
         const labels = {
             legs: (d) => `Noir · ${d} Denier · Seamed`,
-            lingerie: (d) => `Chantilly Lace · ${d} Denier`
+            lingerie: (d) => `Chantilly Lace · ${d} Denier`,
+            back: (d) => `Chantilly Lace · Back · ${d} Denier`
         };
         let denier = 20;
         const root = document.documentElement;
