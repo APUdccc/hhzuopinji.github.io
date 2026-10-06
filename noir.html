@@ -848,6 +848,9 @@
 
                     <filter id="lsoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
                     <filter id="lsofter" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+                    <!-- 竖直细线的模糊需用画布坐标，否则滤镜区域只有线宽那么窄 -->
+                    <filter id="vsoft" filterUnits="userSpaceOnUse" x="0" y="0" width="500" height="800"><feGaussianBlur stdDeviation="3"/></filter>
+                    <filter id="vsofter" filterUnits="userSpaceOnUse" x="0" y="0" width="500" height="800"><feGaussianBlur stdDeviation="9"/></filter>
                     <filter id="lhair" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter>
 
                     <!-- 半边（右）：光影 + 内衣 -->
@@ -1029,7 +1032,7 @@
                         <ellipse cx="250" cy="104" rx="10" ry="5" fill="#9a6a5c" fill-opacity=".4" filter="url(#lsoft)"/>
                         <path d="M250,250 C246,272 246,302 250,332" fill="none" stroke="#6a3e36" stroke-opacity=".55" stroke-width="7" filter="url(#lsoft)"/>
                         <path d="M250,262 C248,282 248,304 250,326" fill="none" stroke="#5a3028" stroke-opacity=".45" stroke-width="1.6" filter="url(#lhair)"/>
-                        <path d="M250,384 L250,456" stroke="#9a6a5c" stroke-opacity=".16" stroke-width="7" filter="url(#lsoft)"/>
+                        <path d="M250,384 L250,456" stroke="#9a6a5c" stroke-opacity=".16" stroke-width="7" filter="url(#vsoft)"/>
                         <ellipse cx="250" cy="472" rx="2.6" ry="5.5" fill="#7a4a40" fill-opacity=".65" filter="url(#lhair)"/>
                         <ellipse cx="250" cy="480" rx="4" ry="2" fill="#fff" fill-opacity=".35" filter="url(#lhair)"/>
                     </g>
@@ -1054,9 +1057,29 @@
             <!-- 背面：蕾丝内衣后视 -->
             <svg class="figure back" data-for="back" viewBox="0 0 500 800" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                 <defs>
+                    <path id="bodyBack" d="M218,20 L282,20
+                        C282,50 284,66 290,76
+                        C306,88 334,94 362,100
+                        C386,106 398,124 396,150
+                        C394,172 384,190 376,206
+                        C372,260 362,340 340,420
+                        C336,452 352,504 378,556
+                        C396,596 404,646 400,704
+                        L394,800 L254,800
+                        C252,760 252,730 250,706
+                        C248,730 248,760 246,800
+                        L106,800 L100,704
+                        C96,646 104,596 122,556
+                        C148,504 164,452 160,420
+                        C138,340 128,260 124,206
+                        C116,190 106,172 104,150
+                        C102,124 114,106 138,100
+                        C166,94 194,88 210,76
+                        C216,66 218,50 218,20 Z"/>
+                    <clipPath id="bodyBackClip"><use href="#bodyBack"/></clipPath>
                     <path id="bandBackR" d="M250,312 C290,318 340,318 388,302 L390,330 C340,346 290,346 250,340 Z"/>
-                    <path id="briefBackR" d="M250,500 C290,502 336,498 384,488 L390,566 C372,620 332,684 284,700 C268,705 258,705 250,702 Z"/>
-                    <path id="foldR" d="M390,566 C372,620 332,684 284,700 C268,705 258,705 250,702"/>
+                    <path id="briefBackR" d="M250,500 C290,502 336,498 388,488 L398,572 C388,640 344,708 288,716 C270,719 258,719 250,716 Z"/>
+                    <path id="foldR" d="M398,572 C388,640 344,708 288,716 C270,719 258,719 250,716"/>
                     <radialGradient id="glute" cx=".5" cy=".42" r=".55">
                         <stop offset="0" stop-color="#fff" stop-opacity=".38"/>
                         <stop offset=".65" stop-color="#fff" stop-opacity=".08"/>
@@ -1072,10 +1095,10 @@
                         <!-- 手臂底色（与躯干同色，肩部无缝） -->
                         <use href="#armR" fill="url(#skinU)"/>
 
-                        <g clip-path="url(#bodyClip)">
+                        <g clip-path="url(#bodyBackClip)">
                             <!-- 躯干侧面与腰线 -->
                             <path d="M376,214 C372,260 362,340 340,420" fill="none" stroke="#a87466" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
-                            <path d="M378,206 C368,300 350,380 342,430 C338,470 348,520 368,580 C378,620 382,660 380,720"
+                            <path d="M378,206 C368,300 350,380 342,430 C338,470 352,524 380,584 C394,624 398,664 394,720"
                                   fill="none" stroke="#8a5a50" stroke-opacity=".4" stroke-width="24" filter="url(#lsofter)"/>
                             <!-- 斜方肌与肩胛骨 -->
                             <path d="M262,92 C300,98 340,106 376,122" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="12" filter="url(#lsoft)"/>
@@ -1087,42 +1110,43 @@
                             <!-- 腰窝 -->
                             <ellipse cx="274" cy="478" rx="4" ry="6.5" fill="#9a6a5c" fill-opacity=".45" filter="url(#lhair)"/>
                             <!-- 胯部高光 -->
-                            <path d="M356,560 C372,600 380,640 380,700" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="16" filter="url(#lsoft)"/>
+                            <path d="M364,560 C382,600 392,640 392,700" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="16" filter="url(#lsoft)"/>
 
                             <!-- 大腿后侧丝袜 + 袜口 + 后缝线 -->
-                            <g transform="translate(0 30)">
-                                <path d="M250,696 C300,692 350,688 404,684 L404,800 L250,800 Z" style="fill: var(--s-mid)" fill-opacity=".55"/>
-                                <path d="M250,696 C300,692 350,688 404,684 L404,800 L250,800 Z" fill="url(#mesh)" opacity=".5"/>
-                                <path d="M254,712 C258,740 258,770 258,800 M384,700 C388,740 388,770 386,800" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
+                            <g transform="translate(0 42)">
+                                <path d="M250,696 C300,692 350,688 414,684 L414,800 L250,800 Z" style="fill: var(--s-mid)" fill-opacity=".55"/>
+                                <path d="M250,696 C300,692 350,688 414,684 L414,800 L250,800 Z" fill="url(#mesh)" opacity=".5"/>
+                                <path d="M254,712 C258,740 258,770 258,800 M394,700 C398,740 398,770 394,800" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
                                 <path d="M318,712 C320,740 322,770 323,800" fill="none" stroke="#000" stroke-width="2" stroke-opacity=".85"/>
                                 <path d="M319.4,712 C321.4,740 323.4,770 324.4,800" fill="none" stroke="#c9a96e" stroke-width=".6" stroke-opacity=".4"/>
-                                <path d="M250,694 C300,690 350,686 404,682 L404,708 C350,712 300,716 250,720 Z" fill="#0b0809" fill-opacity=".88"/>
-                                <path d="M250,694 C300,690 350,686 404,682 L404,708 C350,712 300,716 250,720 Z" fill="url(#floralB)" opacity=".7"/>
-                                <path d="M250,720 C300,716 350,712 404,708" fill="none" stroke="#0b0809" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 5"/>
-                                <path d="M250,695 C300,691 350,687 404,683" fill="none" stroke="#c9a96e" stroke-opacity=".35" stroke-width=".7"/>
+                                <path d="M250,694 C300,690 350,686 414,682 L414,708 C350,712 300,716 250,720 Z" fill="#0b0809" fill-opacity=".88"/>
+                                <path d="M250,694 C300,690 350,686 414,682 L414,708 C350,712 300,716 250,720 Z" fill="url(#floralB)" opacity=".7"/>
+                                <path d="M250,720 C300,716 350,712 414,708" fill="none" stroke="#0b0809" stroke-width="4" stroke-linecap="round" stroke-dasharray="0 5"/>
+                                <path d="M250,695 C300,691 350,687 414,683" fill="none" stroke="#c9a96e" stroke-opacity=".35" stroke-width=".7"/>
                             </g>
 
                             <!-- 臀部圆润体积（透过蕾丝可见） -->
-                            <ellipse cx="318" cy="600" rx="66" ry="78" fill="url(#glute)"/>
-                            <path d="M262,708 C292,708 332,694 370,650" fill="none" stroke="#7a4a40" stroke-opacity=".45" stroke-width="7" filter="url(#lsoft)"/>
+                            <ellipse cx="324" cy="612" rx="80" ry="94" fill="url(#glute)"/>
+                            <path d="M392,560 C404,600 406,644 398,694" fill="none" stroke="#8a5a50" stroke-opacity=".3" stroke-width="12" filter="url(#lsoft)"/>
+                            <path d="M262,722 C298,722 344,704 384,660" fill="none" stroke="#7a4a40" stroke-opacity=".45" stroke-width="7" filter="url(#lsoft)"/>
 
                             <!-- 全包臀蕾丝裤 -->
                             <use href="#briefBackR" fill="#0b0809" style="fill-opacity: var(--lace-op)"/>
                             <use href="#briefBackR" fill="url(#mesh)"/>
                             <use href="#briefBackR" fill="url(#floralB)" opacity=".55"/>
                             <use href="#briefBackR" fill="url(#floral)" opacity=".92"/>
-                            <ellipse cx="318" cy="598" rx="70" ry="84" fill="url(#gluteLace)"/>
+                            <ellipse cx="324" cy="608" rx="84" ry="98" fill="url(#gluteLace)"/>
                             <!-- 裤腰 + 腿口睫毛边 -->
-                            <path d="M250,504 C290,506 336,502 386,492" fill="none" stroke="#0b0809" stroke-width="9"/>
-                            <path d="M250,500.5 C290,502.5 336,498.5 386,488.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".8"/>
+                            <path d="M250,504 C290,506 336,502 392,492" fill="none" stroke="#0b0809" stroke-width="9"/>
+                            <path d="M250,500.5 C290,502.5 336,498.5 392,488.5" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width=".8"/>
                             <use href="#foldR" fill="none" stroke="#0b0809" stroke-width="5" stroke-linecap="round" stroke-dasharray="0 6"/>
                             <use href="#foldR" fill="none" stroke="#0b0809" stroke-width="7" stroke-dasharray=".6 2" opacity=".75" transform="translate(0 2.5)"/>
 
                             <!-- 后吊袜带：落在大腿后侧，金扣夹住袜口 -->
-                            <path d="M318,506 C320,600 320,670 318,722" fill="none" stroke="#0b0809" stroke-width="4.2" stroke-linecap="round"/>
-                            <path d="M316.6,506 C318.6,600 318.6,670 316.6,722" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".6"/>
-                            <rect x="312.5" y="604" width="12" height="7" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
-                            <g transform="translate(318 726)">
+                            <path d="M318,506 C320,600 320,690 318,734" fill="none" stroke="#0b0809" stroke-width="4.2" stroke-linecap="round"/>
+                            <path d="M316.6,506 C318.6,600 318.6,690 316.6,734" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width=".6"/>
+                            <rect x="312.5" y="612" width="12" height="7" rx="1.5" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
+                            <g transform="translate(318 738)">
                                 <circle cy="-4" r="3.6" fill="none" stroke="url(#goldG)" stroke-width="1.5"/>
                                 <path d="M-4,0 L4,0 L3,10 L-3,10 Z" fill="url(#goldG)"/>
                             </g>
@@ -1153,17 +1177,17 @@
                 <ellipse cx="250" cy="380" rx="230" ry="360" fill="#8a5260" opacity=".35" filter="url(#lsofter)"/>
 
                 <g mask="url(#fadeBody)">
-                    <use href="#body" fill="url(#skinU)"/>
+                    <use href="#bodyBack" fill="url(#skinU)"/>
                     <use href="#halfBackR"/>
                     <use href="#halfBackR" transform="translate(500 0) scale(-1 1)"/>
 
                     <!-- 中线：后颈、脊柱沟、臀缝 -->
-                    <g clip-path="url(#bodyClip)">
+                    <g clip-path="url(#bodyBackClip)">
                         <path d="M226,40 C230,60 232,72 236,84 M274,40 C270,60 268,72 264,84" fill="none" stroke="#a87868" stroke-opacity=".3" stroke-width="4" filter="url(#lsoft)"/>
                         <ellipse cx="250" cy="96" rx="5" ry="4" fill="#fff" fill-opacity=".4" filter="url(#lhair)"/>
-                        <path d="M250,110 C250,200 251,300 250,470" fill="none" stroke="#9a6a5c" stroke-opacity=".26" stroke-width="10" filter="url(#lsofter)"/>
-                        <path d="M250,520 C250,580 250,640 250,700" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="5" filter="url(#lsoft)"/>
-                        <path d="M250,512 C250,580 250,640 250,702" fill="none" stroke="#000" stroke-opacity=".7" stroke-width="1.2"/>
+                        <path d="M250,110 C250,200 251,300 250,470" fill="none" stroke="#9a6a5c" stroke-opacity=".3" stroke-width="10" filter="url(#vsofter)"/>
+                        <path d="M250,520 C250,580 250,640 250,712" fill="none" stroke="#000" stroke-opacity=".45" stroke-width="5" filter="url(#vsoft)"/>
+                        <path d="M250,512 C250,580 250,640 250,716" fill="none" stroke="#000" stroke-opacity=".7" stroke-width="1.2"/>
                     </g>
 
                     <!-- 三排背扣 -->
