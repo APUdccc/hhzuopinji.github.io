@@ -674,147 +674,382 @@ function portraitOf(type) {
 // ======================================================================
 // 僵尸绘制（原点 = 脚底中心，朝左）
 // ======================================================================
-const ZBASE = { skin: '#a8bc8d', skinHi: '#d0dfb6', skinD: '#6b8152', coat: '#6c5641', coatD: '#45362a', pants: '#4b5274', pantsD: '#323750', shirt: '#ece5cf', tie: '#c0283a', shoe: '#2b231d', eyeW: '#fffbea', line: '#2a2a1e', mouth: '#3b1515' };
-const FBASE = Object.assign({}, ZBASE, { coat: '#d32f2f', coatD: '#8e1b1b', pants: '#ececec', pantsD: '#a9a9a9', shirt: '#d32f2f', tie: '#d32f2f' });
-const ASH = {}; for (const k in ZBASE) ASH[k] = k === 'eyeW' ? '#ffb347' : (k === 'skinHi' ? '#4a403a' : '#231d1a');
+const ZBASE = {
+    skin: '#97a183', skinHi: '#c8ccb0', skinD: '#59644a', bruise: '#6d5868', vein: '#4f4660',
+    blood: '#5e1a14', socket: '#24231b',
+    coat: '#5b4b3b', coatHi: '#7b6852', coatD: '#30271e',
+    pants: '#41475c', pantsD: '#2a2e3d', shirt: '#cbc2a2', shirtD: '#8f8566', tie: '#7c2026',
+    shoe: '#221b16', eyeW: '#ddd6a8', iris: '#8f927a', line: '#1b1a14', mouth: '#250c0a',
+    gum: '#6b2b2b', tooth: '#d3c793', bone: '#e2d7b8', dirt: '#3d3222',
+};
+const FBASE = Object.assign({}, ZBASE, { coat: '#ad2f2b', coatHi: '#cc4a42', coatD: '#651513', pants: '#d6d3c8', pantsD: '#96928a', shirt: '#ad2f2b', shirtD: '#651513', tie: '#ad2f2b' });
+const ASH = {};
+for (const k in ZBASE) ASH[k] = k === 'eyeW' ? '#ffb347' : (k === 'skinHi' || k === 'coatHi' ? '#4a403a' : '#211b18');
 function tintPal(P, col, t) { const o = {}; for (const k in P) o[k] = mix(P[k], col, t); return o; }
 const PALS = {
     normal: { n: ZBASE, s: tintPal(ZBASE, '#6fb3ff', 0.42) },
     football: { n: FBASE, s: tintPal(FBASE, '#6fb3ff', 0.42) },
 };
+// 每只僵尸固定的随机外观特征
+const zv = (z, i) => (z && z.v ? z.v[i % z.v.length] : 0.5);
 
 function drawZombie(c, z) {
     const P = z.burnt ? ASH : (z.slow > 0 ? PALS[z.palKey].s : PALS[z.palKey].n);
     const fb = z.type === 'football';
     const eat = z.eating && !z.dying;
+    const still = eat || z.burnt;
     const ph = z.ph;
-    const sw = eat || z.burnt ? 0 : Math.sin(ph) * (fb ? 0.62 : 0.42);
-    const bob = eat ? Math.sin(z.t * 9) * 1.2 : -Math.abs(Math.sin(ph)) * 3;
+    // 拖着一条腿走：前腿摆幅大，后腿拖地
+    const swF = still ? 0 : Math.sin(ph) * (fb ? 0.62 : 0.46);
+    const swB = still ? 0 : -Math.sin(ph) * (fb ? 0.62 : 0.28);
+    const bob = eat ? Math.sin(z.t * 9) * 1.2 : -Math.abs(Math.sin(ph)) * 3.2;
+    const lurch = still ? 0 : Math.sin(ph) * 0.05;
+    const et = z.t * (z.slow > 0 ? 4.5 : 9);
+    const armF = eat ? 0.38 + Math.sin(et) * 0.32 : 0.02 + Math.sin(ph + 1) * 0.09;
+    const armB = eat ? 0.32 + Math.sin(et + 1.6) * 0.32 : -0.14 + Math.sin(ph) * 0.07;
     c.save();
     c.translate(0, bob);
-    if (fb && !eat) c.rotate(-0.12);
-    const et = z.t * (z.slow > 0 ? 4.5 : 9);
-    const armF = eat ? 0.35 + Math.sin(et) * 0.32 : 0.04 + Math.sin(ph + 1) * 0.08;
-    const armB = eat ? 0.35 + Math.sin(et + 1.6) * 0.32 : 0.08 + Math.sin(ph) * 0.08;
-    drawZArm(c, P, 8, -94, armB, false, fb);
-    drawZLeg(c, P, 9, -50, -sw, fb);
-    drawZLeg(c, P, -5, -50, sw, fb);
+    drawZLeg(c, P, z, 9, -50, swB, fb, false);
+    drawZLeg(c, P, z, -5, -50, swF, fb, true);
+    // 上身前倾驼背（以髋部为轴）
+    c.translate(2, -50);
+    c.rotate((fb ? -0.2 : -0.11) + lurch);
+    c.translate(-2, 50);
+    drawZArm(c, P, 8, -94, armB, false, fb, z);
     drawZTorso(c, P, z, fb);
     if (!z.headless) {
         const hb = eat ? Math.sin(et) * 2 : Math.sin(ph * 2) * 1;
         c.save();
-        c.translate(-2, -116 + hb);
-        c.rotate(eat ? -0.06 + Math.sin(et) * 0.06 : Math.sin(ph) * 0.04);
-        drawZHead(c, P, z, eat ? (Math.sin(et) > 0 ? 1 : 0.2) : 0.25);
+        c.translate(-5, -115 + hb);
+        c.rotate(eat ? -0.05 + Math.sin(et) * 0.07 : 0.07 + Math.sin(ph) * 0.05);
+        drawZHead(c, P, z, eat ? (Math.sin(et) > 0 ? 1 : 0.25) : 0.35);
         c.restore();
     } else {
-        ell(c, -2, -104, 7, 4); fs(c, '#6a1a1a', P.line, 1.5);
+        rrect(c, -5, -112, 5, 9, 2); fs(c, P.bone, P.line, 1.2);
+        ell(c, -3, -104, 8, 4); fs(c, '#5a1410', P.line, 1.4);
+        ell(c, -3, -105, 4, 1.8); fs(c, '#8a2a20');
     }
     if (z.type === 'flag' && !z.burnt) drawFlag(c, z);
-    if (!z.armLost) drawZArm(c, P, -6, -92, armF, true, fb);
+    if (!z.armLost) drawZArm(c, P, -6, -92, armF, true, fb, z);
     else {
         c.save(); c.translate(-6, -92); c.rotate(armF);
-        rrect(c, -14, -7, 18, 14, 5); fs(c, P.coat, P.line, 2);
-        ell(c, -14, 0, 3, 6); fs(c, '#6a1a1a');
+        c.beginPath(); c.moveTo(6, -7.5); c.lineTo(-12, -6); c.lineTo(-15, -2); c.lineTo(-11, 1); c.lineTo(-15, 5); c.lineTo(6, 7.5); c.closePath();
+        fs(c, P.coat, P.line, 1.6);
+        rrect(c, -20, -2, 8, 4, 1.5); fs(c, P.bone, P.line, 1);
+        circ(c, -20, 0, 2.6); fs(c, P.bone, P.line, 1);
+        ell(c, -13, 0, 2.5, 5); fs(c, '#5a1410');
         c.restore();
     }
     c.restore();
+    if (!z.dying && zv(z, 7) > 0.45) drawFlies(c, z);
 }
 
-function drawZArm(c, P, x, y, a, front, fb) {
+function drawFlies(c, z) {
+    const n = zv(z, 8) > 0.7 ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+        const a = z.t * (4.6 + i * 1.3) + i * 2.1;
+        const x = -12 + Math.cos(a) * (16 + i * 6) + Math.sin(a * 2.3) * 4;
+        const y = -130 + Math.sin(a * 1.4) * (10 + i * 3);
+        const wf = 1 + Math.abs(Math.sin(z.t * 70 + i)) * 0.8;
+        c.fillStyle = 'rgba(225,235,245,.55)';
+        ell(c, x - 1.6, y - 2.4, 2.3, wf, -0.5); c.fill();
+        ell(c, x + 1.6, y - 2.4, 2.3, wf, 0.5); c.fill();
+        circ(c, x, y, 1.6); c.fillStyle = '#121010'; c.fill();
+    }
+}
+
+function drawZArm(c, P, x, y, a, front, fb, z) {
     c.save(); c.translate(x, y); c.rotate(a);
     const skin = front ? P.skin : P.skinD;
+    const sleeve = front ? P.coat : P.coatD;
+    const s0 = fb ? -14 : -26;
     if (fb) {
-        rrect(c, -16, -7, 22, 14, 6); fs(c, front ? P.coat : P.coatD, P.line, 2);
-        rrect(c, -44, -5.5, 32, 11, 5); fs(c, skin, P.line, 2);
+        rrect(c, -16, -7.5, 22, 15, 6);
+        fs(c, lin(c, 0, -7, 0, 7, [lighten(sleeve, 0.12), sleeve, darken(sleeve, 0.25)]), P.line, 1.6);
     } else {
-        rrect(c, -30, -7, 36, 14, 6); fs(c, front ? P.coat : P.coatD, P.line, 2);
-        c.beginPath(); c.moveTo(-30, -7); c.lineTo(-34, -3); c.lineTo(-29, 0); c.lineTo(-34, 4); c.lineTo(-30, 7); c.closePath();
-        fs(c, front ? P.coat : P.coatD, P.line, 1.4);
-        rrect(c, -44, -5, 18, 10, 4); fs(c, skin, P.line, 2);
+        c.beginPath();
+        c.moveTo(6, -7.5); c.lineTo(-25, -6.2); c.lineTo(-28, -3); c.lineTo(-25, -1); c.lineTo(-31, 2.2); c.lineTo(-26.5, 4.6); c.lineTo(-29, 7); c.lineTo(6, 7.5);
+        c.closePath();
+        fs(c, lin(c, 0, -7, 0, 7, [lighten(sleeve, 0.12), sleeve, darken(sleeve, 0.28)]), P.line, 1.5);
+        c.strokeStyle = rgba(P.line, 0.35); c.lineWidth = 1.1;
+        c.beginPath(); c.moveTo(-6, -6.5); c.quadraticCurveTo(-10, 0, -7, 6.5); c.moveTo(-16, -6); c.quadraticCurveTo(-19, 0, -17, 6); c.stroke();
+        if (z && zv(z, 11) > 0.5) { ell(c, -10, 2, 3.5, 2.2); fs(c, rgba(P.dirt, 0.55)); }
     }
-    ell(c, -48, 1, 7, 6.2); fs(c, skin, P.line, 2);
+    // 消瘦的小臂
+    c.beginPath();
+    c.moveTo(s0, -4.4); c.quadraticCurveTo(s0 - 9, -2.6, -44, -3.2);
+    c.lineTo(-44, 3.4); c.quadraticCurveTo(s0 - 9, 3.6, s0, 4.6);
+    c.closePath();
+    fs(c, lin(c, 0, -4, 0, 4, [lighten(skin, 0.15), skin, darken(skin, 0.22)]), P.line, 1.4);
+    c.strokeStyle = rgba(P.vein, 0.45); c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(s0 - 2, 0.5); c.quadraticCurveTo(-36, -1.5, -42, 1); c.stroke();
+    circ(c, -42.5, -2.6, 1.8); fs(c, rgba(P.skinHi, 0.55));
+    // 手掌与细长手指
+    ell(c, -48, 0.5, 6.4, 5.2, -0.15);
+    fs(c, rad(c, -48, 0.5, 7, [lighten(skin, 0.1), skin, darken(skin, 0.2)]), P.line, 1.4);
+    const curl = front ? 0.5 : 0.9;
+    const tips = [];
     c.lineCap = 'round';
     for (let pass = 0; pass < 2; pass++) {
         c.beginPath();
-        for (let i = 0; i < 3; i++) { c.moveTo(-52, -2 + i * 3.4); c.lineTo(-59, -3.5 + i * 4.4); }
-        c.lineWidth = pass ? 2.4 : 4.6; c.strokeStyle = pass ? skin : P.line; c.stroke();
+        for (let i = 0; i < 4; i++) {
+            const fy = -3.6 + i * 2.5, L = 10 - Math.abs(i - 1.2) * 1.5;
+            const tx = -53 - L - 1.5, ty = fy + curl * 3.2;
+            c.moveTo(-52, fy);
+            c.quadraticCurveTo(-52 - L, fy - 0.6 + i * 0.3, tx, ty);
+            if (!pass) tips.push([tx, ty]);
+        }
+        c.moveTo(-46, -4.5); c.quadraticCurveTo(-51, -8.5, -55, -7.5);
+        c.lineWidth = pass ? 1.7 : 3.3; c.strokeStyle = pass ? skin : P.line; c.stroke();
     }
+    for (const [tx, ty] of tips) { circ(c, tx, ty, 0.95); fs(c, P.dirt); }
     c.restore();
 }
 
-function drawZLeg(c, P, x, y, a, fb) {
+function drawZLeg(c, P, z, x, y, a, fb, front) {
     c.save(); c.translate(x, y); c.rotate(a);
-    rrect(c, -7.5, -4, 15, 34, 5); fs(c, P.pants, P.line, 2);
-    rrect(c, -6.5, 26, 13, 20, 4); fs(c, P.pantsD, P.line, 2);
-    if (!fb) { rrect(c, -5, 42, 10, 4, 1); fs(c, P.skinD); }
-    c.beginPath(); c.moveTo(-5, 43); c.quadraticCurveTo(-21, 42, -20, 52); c.lineTo(7, 52); c.lineTo(7, 43); c.closePath();
-    fs(c, P.shoe, '#0d0a08', 1.6);
-    if (fb) { c.fillStyle = '#ddd'; for (let i = 0; i < 3; i++) c.fillRect(-16 + i * 8, 52, 3, 3); }
+    const pants = front ? P.pants : darken(P.pants, 0.15);
+    c.beginPath(); c.moveTo(-8, -4); c.lineTo(8, -4); c.lineTo(7, 28); c.lineTo(-7, 28); c.closePath();
+    fs(c, lin(c, -8, 0, 8, 0, [lighten(pants, 0.1), pants, darken(pants, 0.28)]), P.line, 1.5);
+    c.strokeStyle = rgba(P.line, 0.3); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-6, 8); c.quadraticCurveTo(0, 11, 5, 7); c.moveTo(-5, 18); c.quadraticCurveTo(0, 21, 6, 17); c.stroke();
+    // 膝盖弯曲
+    c.save();
+    c.translate(0, 26);
+    c.rotate(-0.05 - Math.max(0, -a) * 0.7);
+    const torn = !fb && zv(z, front ? 1 : 2) > 0.55;
+    const pD = front ? P.pantsD : darken(P.pantsD, 0.15);
+    if (torn) {
+        c.beginPath(); c.moveTo(-7, -2); c.lineTo(7, -2); c.lineTo(6.5, 8); c.lineTo(3, 5); c.lineTo(0.5, 10); c.lineTo(-2.5, 6); c.lineTo(-6.5, 9.5); c.closePath();
+        fs(c, pD, P.line, 1.4);
+        rrect(c, -4, 6, 8, 15, 3);
+        fs(c, lin(c, -4, 0, 4, 0, [P.skinHi, P.skin, P.skinD]), P.line, 1.3);
+        c.beginPath(); c.moveTo(-1.5, 8); c.lineTo(-1, 19); c.lineWidth = 1.2; c.strokeStyle = rgba(P.bone, 0.6); c.stroke();
+    } else {
+        c.beginPath(); c.moveTo(-6.5, -2); c.lineTo(6.5, -2); c.lineTo(6, 18); c.lineTo(3, 20); c.lineTo(0, 17.5); c.lineTo(-3, 20); c.lineTo(-6, 18); c.closePath();
+        fs(c, lin(c, -6, 0, 6, 0, [lighten(pD, 0.1), pD, darken(pD, 0.25)]), P.line, 1.4);
+    }
+    const bare = !fb && zv(z, front ? 3 : 4) > 0.78;
+    if (bare) {
+        c.beginPath(); c.moveTo(-4, 18); c.quadraticCurveTo(-15, 18.5, -17, 24.5); c.lineTo(5, 25.5); c.lineTo(5, 18); c.closePath();
+        fs(c, lin(c, 0, 18, 0, 26, [P.skin, P.skinD]), P.line, 1.3);
+        for (let i = 0; i < 4; i++) { circ(c, -16 + i * 2.6, 24.2, 1.5); fs(c, P.skinD, P.line, 0.8); }
+    } else {
+        c.beginPath(); c.moveTo(-5, 17); c.quadraticCurveTo(-20, 16, -20, 24); c.lineTo(7, 24); c.lineTo(7, 17); c.closePath();
+        fs(c, lin(c, 0, 16, 0, 24, [lighten(P.shoe, 0.18), P.shoe]), '#0b0806', 1.4);
+        const flap = !fb && front && zv(z, 5) > 0.5 ? Math.max(0, Math.sin(z.ph * 1)) * 3 : 0;
+        c.beginPath(); c.moveTo(7, 24); c.lineTo(-6, 24); c.lineTo(-20, 24 + flap); c.lineTo(-19, 26 + flap); c.lineTo(7, 26.5); c.closePath();
+        fs(c, darken(P.shoe, 0.35));
+        c.strokeStyle = rgba(P.shoeHi || '#8a7a66', 0.5); c.lineWidth = 0.9;
+        c.beginPath(); c.moveTo(-6, 18); c.lineTo(-3, 20.5); c.moveTo(-3, 17.5); c.lineTo(0, 20); c.stroke();
+        if (fb) { c.fillStyle = '#ccc'; for (let i = 0; i < 3; i++) c.fillRect(-16 + i * 8, 26, 3, 3); }
+    }
+    c.restore();
     c.restore();
 }
 
 function drawZTorso(c, P, z, fb) {
-    rrect(c, -8, -112, 12, 16, 4); fs(c, P.skinD, P.line, 1.6);
-    c.beginPath();
-    c.moveTo(-17, -101);
-    c.quadraticCurveTo(0, -108, 19, -100);
-    c.lineTo(23, -50);
-    c.lineTo(15, -44); c.lineTo(9, -49); c.lineTo(2, -42); c.lineTo(-6, -47); c.lineTo(-13, -42);
-    c.lineTo(-21, -46);
-    c.closePath();
-    fs(c, lin(c, -21, 0, 23, 0, [lighten(P.coat, 0.12), P.coat, P.coatD]), P.line, 2.2);
-    if (!fb) {
-        c.beginPath(); c.moveTo(-10, -103); c.lineTo(7, -103); c.lineTo(-2, -70); c.closePath(); fs(c, P.shirt, P.line, 1.4);
-        c.beginPath(); c.moveTo(-5, -100); c.lineTo(0, -100); c.lineTo(2, -76); c.lineTo(-3, -66); c.lineTo(-7, -76); c.closePath();
-        fs(c, lin(c, -7, 0, 2, 0, [lighten(P.tie, 0.2), P.tie]), darken(P.tie, 0.4), 1.4);
-        c.strokeStyle = rgba(P.line, 0.7); c.lineWidth = 1.6;
-        c.beginPath(); c.moveTo(-10, -103); c.lineTo(-15, -80); c.lineTo(-3, -68); c.moveTo(7, -103); c.lineTo(13, -82); c.lineTo(0, -68); c.stroke();
-        circ(c, 6, -60, 2); fs(c, P.coatD); circ(c, 6, -52, 2); fs(c, P.coatD);
-        rrect(c, 8, -82, 9, 12, 2); fs(c, rgba(P.coatD, 0.6));
-    } else {
-        c.font = `bold 15px ${FONT}`; c.textAlign = 'center'; c.fillStyle = '#fff';
-        c.fillText('99', 2, -64);
-        // 护肩
-        ell(c, 0, -100, 27, 12); fs(c, rad(c, 0, -100, 27, [lighten(P.coat, 0.3), P.coat, P.coatD]), P.line, 2.2);
-        c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 2.4;
-        c.beginPath(); c.ellipse(0, -100, 20, 7, 0, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+    // 脖子（筋腱外露）
+    c.beginPath(); c.moveTo(-9, -113); c.lineTo(-1, -114); c.lineTo(3, -98); c.lineTo(-8, -98); c.closePath();
+    fs(c, lin(c, -9, 0, 3, 0, [P.skin, P.skinD]), P.line, 1.3);
+    c.strokeStyle = rgba(P.line, 0.4); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-6, -112); c.lineTo(-4, -100); c.stroke();
+    // 外套（下摆破烂）
+    const hem = [[15, -44], [10, -49], [4, -41], [-2, -48], [-7, -43], [-13, -47], [-17, -42]];
+    const coatPath = () => {
+        c.beginPath();
+        c.moveTo(-17, -101);
+        c.quadraticCurveTo(0, -109, 19, -100);
+        c.lineTo(23, -50);
+        for (const [hx, hy] of hem) c.lineTo(hx, hy + (zv(z, Math.abs(hx)) - 0.5) * 4);
+        c.lineTo(-21, -46);
+        c.closePath();
+    };
+    coatPath();
+    fs(c, lin(c, -21, 0, 23, 0, [P.coatHi, P.coat, P.coatD]), P.line, 1.8);
+    c.save();
+    coatPath(); c.clip();
+    c.fillStyle = lin(c, 0, -100, 0, -42, ['rgba(0,0,0,0)', 'rgba(0,0,0,.28)']);
+    c.fillRect(-25, -110, 50, 70);
+    // 污渍
+    c.fillStyle = rgba(P.dirt, 0.45);
+    ell(c, 12 + zv(z, 0) * 6, -60, 6, 4, 0.4); c.fill();
+    ell(c, -14, -56 - zv(z, 1) * 8, 4, 6); c.fill();
+    c.fillStyle = rgba(P.blood, 0.4);
+    ell(c, -8 + zv(z, 2) * 8, -88, 3.5, 5); c.fill();
+    // 破洞露出肋骨
+    if (!fb && zv(z, 6) > 0.35) {
+        const hx = 13, hy = -74;
+        c.beginPath();
+        c.moveTo(hx - 5, hy - 9); c.lineTo(hx + 1, hy - 11); c.lineTo(hx + 7, hy - 6); c.lineTo(hx + 6, hy + 3); c.lineTo(hx + 1, hy + 10); c.lineTo(hx - 5, hy + 6); c.lineTo(hx - 7, hy - 2);
+        c.closePath();
+        fs(c, '#1d1310', P.line, 1.2);
+        c.strokeStyle = P.bone; c.lineWidth = 1.8; c.lineCap = 'round';
+        c.beginPath();
+        for (let i = 0; i < 3; i++) { const yy = hy - 5 + i * 5; c.moveTo(hx - 5, yy); c.quadraticCurveTo(hx, yy - 2.5, hx + 5, yy + 0.5); }
+        c.stroke();
+    } else if (!fb) {
+        rrect(c, 9, -82, 10, 12, 1.5); fs(c, rgba(P.coatHi, 0.7), rgba(P.line, 0.5), 1);
+        c.strokeStyle = rgba(P.shirt, 0.7); c.lineWidth = 0.8;
+        c.beginPath(); for (let i = 0; i < 4; i++) { c.moveTo(9 + i * 3, -83.5); c.lineTo(10 + i * 3, -80.5); } c.stroke();
     }
+    c.restore();
+    if (!fb) {
+        // 脏衬衫
+        c.beginPath(); c.moveTo(-10, -104); c.lineTo(7, -104); c.lineTo(-2, -70); c.closePath();
+        fs(c, lin(c, 0, -104, 0, -70, [P.shirt, P.shirtD]), P.line, 1.2);
+        c.fillStyle = rgba(P.blood, 0.5);
+        ell(c, -3, -84, 2.4, 4.5); c.fill();
+        c.beginPath(); c.moveTo(-10, -104); c.lineTo(-6, -98); c.lineTo(-3, -104); c.moveTo(7, -104); c.lineTo(2, -98); c.lineTo(-1, -104);
+        c.lineWidth = 1.1; c.strokeStyle = rgba(P.line, 0.6); c.stroke();
+        // 松垮歪斜的领带
+        c.save(); c.translate(-3, -99); c.rotate(0.22);
+        c.beginPath(); c.moveTo(-2.5, 0); c.lineTo(2.5, 0); c.lineTo(1.6, 4); c.lineTo(-1.6, 4); c.closePath();
+        fs(c, darken(P.tie, 0.15), P.line, 1);
+        c.beginPath(); c.moveTo(-1.6, 4); c.lineTo(1.6, 4); c.lineTo(3.2, 18); c.lineTo(1, 22); c.lineTo(-0.5, 19); c.lineTo(-2.5, 23); c.lineTo(-3, 17); c.closePath();
+        fs(c, lin(c, -3, 0, 3, 0, [lighten(P.tie, 0.15), P.tie, darken(P.tie, 0.3)]), P.line, 1.1);
+        c.restore();
+        c.strokeStyle = rgba(P.line, 0.65); c.lineWidth = 1.4;
+        c.beginPath(); c.moveTo(-10, -104); c.lineTo(-15, -81); c.lineTo(-3, -69); c.moveTo(7, -104); c.lineTo(13, -83); c.lineTo(0, -69); c.stroke();
+        circ(c, 5, -61, 1.9); fs(c, darken(P.coatD, 0.2));
+        c.beginPath(); c.moveTo(4, -54); c.quadraticCurveTo(3, -51, 4.5, -48.5); c.lineWidth = 0.7; c.strokeStyle = rgba(P.shirt, 0.8); c.stroke();
+        circ(c, 4.5, -47.5, 1.9); fs(c, darken(P.coatD, 0.2));
+    } else {
+        c.font = `bold 15px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+        c.fillStyle = rgba(P.shirtD === ASH.shirtD ? '#222222' : '#f0ece0', 0.9);
+        c.fillText('99', 2, -64);
+        ell(c, 0, -100, 27, 12);
+        fs(c, rad(c, 0, -100, 27, [P.coatHi, P.coat, P.coatD]), P.line, 2);
+        c.strokeStyle = 'rgba(240,236,224,.7)'; c.lineWidth = 2.2;
+        c.beginPath(); c.ellipse(0, -100, 20, 7, 0, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+        c.fillStyle = rgba(P.dirt, 0.5);
+        ell(c, -12, -102, 5, 3); c.fill(); ell(c, 14, -97, 4, 2.5); c.fill();
+    }
+}
+
+function zHeadPath(c) {
+    c.beginPath();
+    c.moveTo(-15, 20);
+    c.bezierCurveTo(-4, 25, 8, 20, 12, 12);
+    c.bezierCurveTo(22, 6, 24, -14, 14, -24);
+    c.bezierCurveTo(4, -32, -14, -30, -20, -19);
+    c.bezierCurveTo(-24, -13, -23, -8, -22, -5);
+    c.lineTo(-26.5, 4);
+    c.lineTo(-22, 7);
+    c.bezierCurveTo(-25, 11, -23, 17, -21, 18.5);
+    c.bezierCurveTo(-19, 20.5, -17, 21, -15, 20);
+    c.closePath();
+}
+
+function drawZEye(c, P, x, y, rx, ry, look) {
+    ell(c, x, y, rx, ry);
+    fs(c, rad(c, x, y, rx, [P.eyeW, mix(P.eyeW, '#c09070', 0.45)], 0, 0), P.line, 1);
+    c.strokeStyle = 'rgba(170,50,40,.55)'; c.lineWidth = 0.6;
+    c.beginPath();
+    c.moveTo(x + rx, y); c.lineTo(x + rx * 0.4, y - 0.6);
+    c.moveTo(x - rx, y + 0.5); c.lineTo(x - rx * 0.45, y + 1);
+    c.moveTo(x + rx * 0.7, y + ry * 0.6); c.lineTo(x + rx * 0.2, y + ry * 0.2);
+    c.stroke();
+    circ(c, x + look, y + 0.6, rx * 0.44); fs(c, P.iris);
+    circ(c, x + look, y + 0.6, rx * 0.17); fs(c, '#2a2a22');
+    // 下垂的眼皮
+    c.save();
+    ell(c, x, y, rx, ry); c.clip();
+    c.fillStyle = P.skinD; c.fillRect(x - rx - 1, y - ry - 1, rx * 2 + 2, ry * 0.6);
+    c.restore();
+    c.beginPath(); c.moveTo(x - rx, y - ry * 0.15); c.quadraticCurveTo(x, y - ry * 0.05, x + rx, y - ry * 0.35);
+    c.lineWidth = 1.3; c.strokeStyle = P.line; c.stroke();
 }
 
 function drawZHead(c, P, z, mouthOpen) {
     const armorOn = z.armor > 0 && !z.burnt ? z.armorType : null;
-    ell(c, 17, 0, 5, 7.5); fs(c, P.skinD, P.line, 1.8);
-    ell(c, 0, -2, 22.5, 24.5);
-    fs(c, rad(c, 0, -2, 25, [P.skinHi, P.skin, P.skinD]), P.line, 2.2);
-    // 下巴
-    c.beginPath(); c.ellipse(-7, 14, 15, 9, 0.15, 0.05 * Math.PI, 1.05 * Math.PI);
-    fs(c, P.skin, P.line, 2);
-    // 嘴
-    ell(c, -14, 12, 6.5, 2.4 + mouthOpen * 4.2); fs(c, P.mouth, P.line, 1.4);
-    c.fillStyle = '#f2ecd4';
-    c.fillRect(-17.5, 9.5 - mouthOpen * 1.5, 3, 3.2);
-    c.fillRect(-12, 9.8 - mouthOpen * 1.5, 3, 3.6);
-    // 斑点
-    c.fillStyle = rgba(P.skinD, 0.6);
-    ell(c, 9, -12, 3.6, 2.4, 0.4); c.fill();
-    ell(c, 12, 6, 2.4, 1.8); c.fill();
-    // 眼
-    const ew = P.eyeW;
-    ell(c, -11, -5, 8, 8.5); fs(c, ew, P.line, 1.6);
-    circ(c, -14.5, -4, 1.9); fs(c, '#111');
-    ell(c, 2, -6, 6, 6.6); fs(c, ew, P.line, 1.6);
-    circ(c, -0.5, -5, 1.7); fs(c, '#111');
-    c.strokeStyle = rgba(P.line, 0.55); c.lineWidth = 1.4;
-    c.beginPath(); c.arc(-11, -1, 8, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
-    c.lineWidth = 2.4; c.strokeStyle = P.line;
-    c.beginPath(); c.moveTo(-19, -15); c.lineTo(-4, -13); c.moveTo(-2, -15); c.lineTo(8, -12); c.stroke();
-    if (!armorOn) {
-        c.lineWidth = 1.8; c.strokeStyle = P.line;
+    // 耳朵（破损）
+    ell(c, 14, 0, 4.5, 7, 0.2);
+    fs(c, lin(c, 10, 0, 18, 0, [P.skin, P.skinD]), P.line, 1.3);
+    if (zv(z, 9) > 0.5) { c.beginPath(); c.moveTo(17.5, -6); c.lineTo(13.5, -3); c.lineTo(18.8, -1); c.closePath(); fs(c, P.socket); }
+    zHeadPath(c);
+    fs(c, rad(c, -4, -6, 30, [P.skinHi, P.skin, P.skinD], -0.45, -0.45), P.line, 1.6);
+    c.save();
+    zHeadPath(c); c.clip();
+    // 斑驳的腐烂皮肤
+    c.fillStyle = rgba(P.bruise, 0.32);
+    ell(c, 6 + zv(z, 0) * 8, -12 + zv(z, 1) * 10, 6, 4, 0.5); c.fill();
+    ell(c, -8 + zv(z, 2) * 6, 14, 4, 3); c.fill();
+    c.fillStyle = rgba(P.skinD, 0.45);
+    ell(c, 10, 6, 5, 3.5, -0.3); c.fill();
+    ell(c, -2 + zv(z, 3) * 6, -22, 3.5, 2.5); c.fill();
+    // 凹陷的脸颊
+    c.fillStyle = rad(c, -6, 8, 11, [rgba(P.socket, 0.45), rgba(P.socket, 0)], 0, 0);
+    circ(c, -6, 8, 11); c.fill();
+    // 后脑阴影
+    c.fillStyle = lin(c, 4, 0, 24, 0, ['rgba(0,0,0,0)', 'rgba(0,0,0,.3)']);
+    c.fillRect(4, -32, 22, 60);
+    // 太阳穴血管
+    c.strokeStyle = rgba(P.vein, 0.5); c.lineWidth = 0.8;
+    c.beginPath(); c.moveTo(6, -6); c.quadraticCurveTo(9, -12, 7, -17); c.moveTo(8, -11); c.lineTo(12, -13); c.stroke();
+    // 深陷的眼窝
+    c.fillStyle = rad(c, -14, -5, 9, [rgba(P.socket, 0.85), rgba(P.socket, 0)], 0, 0);
+    circ(c, -14, -5, 9); c.fill();
+    c.fillStyle = rad(c, -1, -6, 7.5, [rgba(P.socket, 0.8), rgba(P.socket, 0)], 0, 0);
+    circ(c, -1, -6, 7.5); c.fill();
+    c.restore();
+    // 眉骨
+    c.strokeStyle = rgba(P.line, 0.85); c.lineWidth = 2; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(-21, -11); c.quadraticCurveTo(-15, -14.5, -8, -11.5); c.moveTo(-5, -12); c.quadraticCurveTo(0, -14, 5, -11); c.stroke();
+    // 眼睛
+    const look = Math.sin(z.t * 0.8 + zv(z, 4) * 6) * 0.8 - 0.8;
+    drawZEye(c, P, -14, -5, 5.8, 5.2, look);
+    drawZEye(c, P, -1, -6, 4.8, 4.5, look);
+    // 鼻子
+    c.beginPath(); c.moveTo(-20, -3); c.quadraticCurveTo(-25, 1, -25, 4.5); c.lineTo(-21.5, 6);
+    c.lineWidth = 1.2; c.strokeStyle = rgba(P.line, 0.8); c.stroke();
+    ell(c, -23.2, 4.6, 1.6, 1); fs(c, P.socket);
+    // 嘴：牙龈外露、牙齿残缺
+    const m = 1.6 + mouthOpen * 6;
+    const mouth = () => {
         c.beginPath();
-        c.moveTo(-4, -25); c.quadraticCurveTo(-8, -34, -2, -38);
-        c.moveTo(4, -25); c.quadraticCurveTo(6, -32, 12, -33);
-        c.moveTo(10, -22); c.quadraticCurveTo(16, -28, 20, -26);
+        c.moveTo(-24, 11);
+        c.quadraticCurveTo(-18, 9.4, -10.5, 12);
+        c.quadraticCurveTo(-17, 12 + m * 1.2, -23, 11 + m);
+        c.closePath();
+    };
+    mouth();
+    fs(c, P.mouth, P.line, 1.2);
+    c.save();
+    mouth(); c.clip();
+    c.fillStyle = P.gum; c.fillRect(-25, 8, 16, 3.4);
+    for (let i = 0; i < 5; i++) {
+        if (zv(z, 10 + i) < 0.22) continue;
+        const tx = -23 + i * 2.7, th = 2.3 + ((i * 7) % 3) * 0.7;
+        c.fillStyle = i % 2 ? P.tooth : darken(P.tooth, 0.12);
+        rrect(c, tx, 10.4, 2.2, th, 0.6); c.fill();
+    }
+    for (let i = 0; i < 3; i++) {
+        const tx = -21 + i * 3.4;
+        c.fillStyle = darken(P.tooth, 0.2);
+        rrect(c, tx, 10 + m - 2.4, 2.2, 3, 0.6); c.fill();
+    }
+    c.restore();
+    c.strokeStyle = rgba(P.line, 0.5); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(-20, 17 + mouthOpen * 2); c.quadraticCurveTo(-14, 19 + mouthOpen * 2, -9, 16); c.stroke();
+    // 缝合伤口
+    if (!armorOn && zv(z, 10) > 0.4) {
+        c.lineCap = 'round';
+        c.beginPath(); c.moveTo(-6, -22); c.quadraticCurveTo(2, -20, 9, -13);
+        c.lineWidth = 2; c.strokeStyle = rgba(P.blood, 0.85); c.stroke();
+        c.lineWidth = 0.9; c.strokeStyle = '#141210';
+        c.beginPath();
+        for (let i = 0; i < 4; i++) { const sx = -4 + i * 3.6, sy = -21.5 + i * 2.2; c.moveTo(sx - 1.4, sy - 2.4); c.lineTo(sx + 1.4, sy + 2.4); }
+        c.stroke();
+    }
+    // 稀疏的头发
+    if (!armorOn) {
+        c.strokeStyle = '#24201a'; c.lineWidth = 1.1; c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(2, -27); c.bezierCurveTo(6, -34, 12, -33, 14, -28);
+        c.moveTo(8, -25); c.bezierCurveTo(16, -24, 21, -18, 21, -8);
+        c.moveTo(-6, -27); c.quadraticCurveTo(-9, -34, -5, -36);
+        c.moveTo(12, -22); c.bezierCurveTo(18, -18, 20, -10, 18, -2);
         c.stroke();
     }
     if (armorOn) {
@@ -1047,7 +1282,7 @@ function makeZombie(type, row, x) {
         hp: T.hp, maxHp: T.hp, armor: T.armor, maxArmor: T.armor || 1, armorType: T.armorType,
         speed: rand(T.speed[0], T.speed[1]), t: rand(0, 10), ph: rand(0, TAU),
         hit: 0, slow: 0, eating: false, chompT: 0, armLost: false, headless: false,
-        dying: false, dt: 0, burnt: false, remove: false, palKey: type === 'football' ? 'football' : 'normal',
+        dying: false, dt: 0, burnt: false, remove: false, v: Array.from({ length: 16 }, Math.random), palKey: type === 'football' ? 'football' : 'normal',
     };
 }
 
@@ -1117,7 +1352,7 @@ function boom(x, y, radius, kind = 'cherry') {
 }
 
 function zombieHeadParticle(z) {
-    part({ kind: 'zhead', x: z.x - 2, y: z.y - 116, vx: rand(10, 70), vy: rand(-240, -160), g: 900, ground: z.y - 14, rot: 0, vr: rand(2, 6), life: 1.6, z: { palKey: z.palKey, slow: z.slow, armor: 0, maxArmor: 1, burnt: false } });
+    part({ kind: 'zhead', x: z.x - 2, y: z.y - 116, vx: rand(10, 70), vy: rand(-240, -160), g: 900, ground: z.y - 14, rot: 0, vr: rand(2, 6), life: 1.6, z: { palKey: z.palKey, slow: z.slow, armor: 0, maxArmor: 1, burnt: false, v: z.v, t: z.t } });
 }
 
 function dropArmor(z) {
@@ -1141,7 +1376,7 @@ function damageZombie(z, dmg, sound = true) {
     z.hp -= dmg;
     if (!z.armLost && z.hp < z.maxHp * 0.5) {
         z.armLost = true;
-        part({ kind: 'zarm', x: z.x - 30, y: z.y - 90, vx: rand(-20, 30), vy: rand(-120, -60), g: 900, ground: z.y - 6, rot: 0.2, vr: rand(-6, 6), life: 1.4, pal: z.palKey, fb: z.type === 'football' });
+        part({ kind: 'zarm', x: z.x - 30, y: z.y - 90, vx: rand(-20, 30), vy: rand(-120, -60), g: 900, ground: z.y - 6, rot: 0.2, vr: rand(-6, 6), life: 1.4, pal: z.palKey, fb: z.type === 'football', zz: z });
     }
     if (z.hp <= 0) killZombie(z, 'normal');
 }
@@ -1249,7 +1484,7 @@ function updatePlants(dt) {
                         if (!z.dying && d > -20 && d < 150) {
                             killZombie(z, 'eaten');
                             SFX.chomp(); SFX.gulp();
-                            for (let i = 0; i < 8; i++) part({ kind: 'dot', x: p.x + 50, y: p.y - 70 + rand(-15, 15), vx: rand(-60, 80), vy: rand(-140, -40), g: 500, life: 0.5, size: rand(2, 4), color: pick(['#a8bc8d', '#6c5641', '#4b5274']) });
+                            for (let i = 0; i < 8; i++) part({ kind: 'dot', x: p.x + 50, y: p.y - 70 + rand(-15, 15), vx: rand(-60, 80), vy: rand(-140, -40), g: 500, life: 0.5, size: rand(2, 4), color: pick(['#97a183', '#5b4b3b', '#41475c', '#5e1a14']) });
                             p.chewing = true;
                         }
                     }
@@ -1361,7 +1596,7 @@ function updateMowers(dt) {
                 if (!z.dying && z.row === m.r && z.x - 30 < m.x + 28 && z.x > m.x - 40) {
                     z.armor = 0; z.hp = 0;
                     killZombie(z, 'normal');
-                    for (let i = 0; i < 6; i++) part({ kind: 'dot', x: z.x, y: z.y - rand(20, 80), vx: rand(40, 160), vy: rand(-160, -40), g: 600, life: 0.6, size: rand(2, 4), color: pick(['#a8bc8d', '#6c5641', '#4b5274']) });
+                    for (let i = 0; i < 6; i++) part({ kind: 'dot', x: z.x, y: z.y - rand(20, 80), vx: rand(40, 160), vy: rand(-160, -40), g: 600, life: 0.6, size: rand(2, 4), color: pick(['#97a183', '#5b4b3b', '#41475c', '#5e1a14']) });
                 }
             }
             if (m.x > W + 60) m.gone = true;
@@ -1733,7 +1968,7 @@ function renderParts(c, parts) {
             case 'zarm': {
                 c.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
                 c.translate(p.x, p.y); c.rotate(p.rot);
-                drawZArm(c, PALS[p.pal].n, 20, 0, 0, true, p.fb);
+                drawZArm(c, PALS[p.pal].n, 20, 0, 0, true, p.fb, p.zz);
                 break;
             }
             case 'armor': {
@@ -1868,7 +2103,7 @@ function renderUI(c) {
     // 进度僵尸头
     const hx = px + pw - pw * prog;
     c.save(); c.translate(hx, py + ph / 2); c.scale(0.5, 0.5);
-    drawZHead(c, ZBASE, { armor: 0, maxArmor: 1 }, 0.3);
+    drawZHead(c, ZBASE, { armor: 0, maxArmor: 1, t: 0 }, 0.3);
     c.restore();
     c.font = `15px ${FONT}`; c.textAlign = 'center'; c.fillStyle = '#fff4dc';
     c.lineWidth = 4; c.strokeStyle = 'rgba(40,20,0,.75)';
