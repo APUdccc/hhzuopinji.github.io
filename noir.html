@@ -728,6 +728,14 @@
                         C166,94 194,88 210,76
                         C216,66 218,50 218,20 Z"/>
                     <clipPath id="bodyClip"><use href="#body"/></clipPath>
+                    <clipPath id="upperClip"><use href="#body"/><use href="#armR"/></clipPath>
+                    <linearGradient id="armFadeG" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="0" y2="230">
+                        <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+                        <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+                    </linearGradient>
+                    <mask id="armFade" maskUnits="userSpaceOnUse" x="0" y="0" width="500" height="800">
+                        <rect width="500" height="800" fill="url(#armFadeG)"/>
+                    </mask>
 
                     <!-- 右侧罩杯（左侧镜像） -->
                     <path id="cupR" d="M256,268
@@ -840,16 +848,35 @@
 
                     <!-- 半边（右）：光影 + 内衣 -->
                     <g id="halfR">
+                        <!-- 手臂底色：先于躯干光影绘制，肩部与身体无缝相连 -->
+                        <path id="armR" d="M328,92
+                            C360,98 412,106 420,160
+                            C426,214 428,300 425,360
+                            C423,388 424,404 426,414
+                            C432,450 432,490 428,530
+                            C424,566 420,592 419,610
+                            C426,632 430,660 428,684
+                            C427,704 424,724 418,738
+                            C414,746 404,749 400,741
+                            C396,726 396,708 398,690
+                            C392,692 388,702 385,712
+                            C382,720 375,718 377,708
+                            C379,694 385,672 392,656
+                            C395,646 395,630 395,610
+                            C393,580 390,540 390,500
+                            C390,460 392,430 390,412
+                            C386,380 382,300 384,250
+                            C385,232 386,220 386,212
+                            C380,170 366,118 328,92 Z" fill="url(#skinU)"/>
+                        <clipPath id="armClip"><use href="#armR"/></clipPath>
                         <g clip-path="url(#bodyClip)">
-                            <path d="M396,150 C394,172 384,190 376,206 C372,260 362,340 340,420" fill="none" stroke="#a87466" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
+                            <path d="M376,214 C372,260 362,340 340,420" fill="none" stroke="#a87466" stroke-opacity=".35" stroke-width="12" filter="url(#lsoft)"/>
                             <!-- 腰侧收紧阴影 -->
                             <path d="M378,206 C368,300 350,380 342,430 C338,470 348,520 368,580 C378,620 382,660 380,720"
                                   fill="none" stroke="#8a5a50" stroke-opacity=".4" stroke-width="24" filter="url(#lsofter)"/>
                             <!-- 锁骨 -->
                             <path d="M262,98 C290,106 322,102 352,108" fill="none" stroke="#a87868" stroke-opacity=".35" stroke-width="2.4" filter="url(#lsoft)"/>
                             <path d="M262,94 C290,101 322,97 352,103" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="1.4" filter="url(#lsoft)"/>
-                            <!-- 肩头高光 -->
-                            <ellipse cx="370" cy="128" rx="18" ry="11" fill="#fff" fill-opacity=".3" filter="url(#lsoft)"/>
                             <!-- 胸上缘柔光与轮廓 -->
                             <path d="M262,252 C282,228 330,218 362,234" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="12" filter="url(#lsoft)"/>
                             <ellipse cx="312" cy="268" rx="62" ry="50" fill="url(#mound)"/>
@@ -913,59 +940,52 @@
                             <path d="M250,355 C286,371 338,369 382,345" fill="none" stroke="#0b0809" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="0 5"/>
                         </g>
 
-                        <!-- 手臂：自然垂放于身侧，与躯干同一肤色渐变 -->
-                        <path id="armR" d="M360,98
-                            C392,102 414,120 420,160
-                            C426,214 428,300 425,360
-                            C423,388 424,404 426,414
-                            C432,450 432,490 428,530
-                            C424,566 420,592 419,610
-                            C423,636 425,666 421,694
-                            C419,706 411,712 405,704
-                            C401,692 399,676 397,660
-                            C391,650 387,660 388,670
-                            C389,676 385,676 384,668
-                            C383,652 389,638 396,630
-                            L395,610
-                            C393,580 390,540 390,500
-                            C390,460 392,430 390,412
-                            C386,380 382,300 384,250
-                            C385,232 386,220 386,212
-                            C382,170 376,130 360,98 Z" fill="url(#skinU)"/>
-                        <clipPath id="armClip"><use href="#armR"/></clipPath>
-                        <g clip-path="url(#armClip)">
-                            <!-- 外侧、内侧暗部塑形 -->
-                            <path d="M420,160 C426,214 428,300 425,360 C423,388 424,404 426,414 C432,450 432,490 428,530 C424,566 420,592 419,610 C423,636 425,666 421,694"
-                                  fill="none" stroke="#a87466" stroke-opacity=".45" stroke-width="12" filter="url(#lsoft)"/>
-                            <path d="M386,212 C384,250 382,300 386,380 C388,400 392,430 390,460 C390,500 392,560 395,610"
-                                  fill="none" stroke="#a87466" stroke-opacity=".38" stroke-width="10" filter="url(#lsoft)"/>
-                            <!-- 正面高光 -->
-                            <path d="M402,150 C406,220 408,300 406,380 C408,420 412,470 410,530 C408,580 408,616 410,654"
-                                  fill="none" stroke="#fff" stroke-opacity=".36" stroke-width="9" filter="url(#lsoft)"/>
-                            <ellipse cx="398" cy="140" rx="16" ry="26" fill="#fff" fill-opacity=".28" filter="url(#lsoft)"/>
-                            <!-- 腋下与肘部 -->
-                            <path d="M384,206 C388,226 388,244 386,262" fill="none" stroke="#8a5a50" stroke-opacity=".45" stroke-width="6" filter="url(#lsoft)"/>
+
+                        <!-- 手臂光影（顶部渐入，避免肩部接缝） -->
+                        <g clip-path="url(#armClip)" mask="url(#armFade)">
+                            <path d="M420,160 C426,214 428,300 425,360 C423,388 424,404 426,414 C432,450 432,490 428,530 C424,566 420,592 419,610 C426,632 430,660 428,684"
+                                  fill="none" stroke="#a87466" stroke-opacity=".42" stroke-width="12" filter="url(#lsoft)"/>
+                            <path d="M386,212 C384,250 382,300 386,380 C388,400 392,430 390,460 C390,500 392,560 395,610 C395,630 394,646 392,656"
+                                  fill="none" stroke="#a87466" stroke-opacity=".36" stroke-width="10" filter="url(#lsoft)"/>
+                            <path d="M404,200 C408,260 408,320 406,380 C408,420 412,470 410,530 C408,580 408,616 410,640"
+                                  fill="none" stroke="#fff" stroke-opacity=".34" stroke-width="9" filter="url(#lsoft)"/>
+                            <path d="M386,214 C388,232 388,248 386,264" fill="none" stroke="#8a5a50" stroke-opacity=".4" stroke-width="6" filter="url(#lsoft)"/>
                             <path d="M392,410 C398,416 404,418 410,418" fill="none" stroke="#9a6a5c" stroke-opacity=".4" stroke-width="2" filter="url(#lhair)"/>
-                            <!-- 手：手背柔光、指缝 -->
-                            <ellipse cx="409" cy="646" rx="9" ry="18" fill="#fff" fill-opacity=".25" filter="url(#lsoft)"/>
-                            <path d="M405,666 C406,680 407,692 409,704" fill="none" stroke="#9a6a5c" stroke-opacity=".5" stroke-width=".9"/>
-                            <path d="M413,664 C414,678 415,690 415,702" fill="none" stroke="#9a6a5c" stroke-opacity=".45" stroke-width=".9"/>
-                            <path d="M399,656 C403,658 411,658 419,654" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1.2" filter="url(#lhair)"/>
+                            <!-- 手背、指节、指缝 -->
+                            <ellipse cx="412" cy="652" rx="11" ry="24" fill="#fff" fill-opacity=".26" filter="url(#lsoft)"/>
+                            <path d="M400,686 C406,682 418,680 428,684" fill="none" stroke="#9a6a5c" stroke-opacity=".3" stroke-width="3" filter="url(#lhair)"/>
+                            <g fill="#fff" fill-opacity=".4" filter="url(#lhair)">
+                                <ellipse cx="404" cy="683" rx="3" ry="1.6"/><ellipse cx="412" cy="681" rx="3" ry="1.6"/>
+                                <ellipse cx="420" cy="681" rx="3" ry="1.6"/>
+                            </g>
+                            <g fill="none" stroke="#9a6a5c" stroke-opacity=".55" stroke-width=".9">
+                                <path d="M406,692 C406,710 405,726 404,742"/>
+                                <path d="M413,690 C414,708 414,724 412,740"/>
+                                <path d="M421,688 C422,704 421,718 418,732"/>
+                            </g>
+                            <path d="M392,656 C390,670 388,684 386,700" fill="none" stroke="#a87466" stroke-opacity=".35" stroke-width="3" filter="url(#lhair)"/>
                         </g>
                         <!-- 手腕金链 -->
                         <path d="M395,607 C403,612 411,613 419,608" fill="none" stroke="url(#goldG)" stroke-width="1.5" stroke-linecap="round"/>
                         <circle cx="407" cy="612" r="1.5" fill="url(#goldG)"/>
                         <!-- 酒红指甲 -->
                         <g fill="#6e1d2b">
-                            <ellipse cx="407" cy="705" rx="2.2" ry="3.4" transform="rotate(-8 407 705)"/>
-                            <ellipse cx="415" cy="701" rx="2.1" ry="3.2" transform="rotate(-12 415 701)"/>
-                            <ellipse cx="386.5" cy="670" rx="1.7" ry="2.6" transform="rotate(10 386.5 670)"/>
+                            <ellipse cx="403" cy="742" rx="2.4" ry="3.6"/>
+                            <ellipse cx="410.5" cy="741" rx="2.4" ry="3.6" transform="rotate(-4 410.5 741)"/>
+                            <ellipse cx="417" cy="734" rx="2.2" ry="3.3" transform="rotate(-14 417 734)"/>
+                            <ellipse cx="379" cy="712" rx="2.2" ry="3.4" transform="rotate(24 379 712)"/>
                         </g>
                         <g fill="#fff" fill-opacity=".55">
-                            <ellipse cx="406.5" cy="704" rx=".6" ry="1.2"/>
-                            <ellipse cx="414.5" cy="700" rx=".6" ry="1.1"/>
+                            <ellipse cx="402.4" cy="741" rx=".7" ry="1.3"/>
+                            <ellipse cx="409.9" cy="740" rx=".7" ry="1.3"/>
+                            <ellipse cx="378.4" cy="711" rx=".6" ry="1.2" transform="rotate(24 378.4 711)"/>
                         </g>
 
+                        <!-- 肩部整体高光（躯干 + 手臂连成一体） -->
+                        <g clip-path="url(#upperClip)">
+                            <ellipse cx="386" cy="138" rx="30" ry="26" fill="#fff" fill-opacity=".26" filter="url(#lsofter)"/>
+                            <path d="M424,170 C426,200 428,230 428,260" fill="none" stroke="#a87466" stroke-opacity=".3" stroke-width="10" filter="url(#lsoft)"/>
+                        </g>
                         <!-- 肩带 + 调节扣 -->
                         <path d="M358,242 C354,190 342,132 330,94" fill="none" stroke="#0b0809" stroke-width="4.5" stroke-linecap="round"/>
                         <path d="M356.6,240 C352.6,190 340.6,132 328.6,94" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width=".8"/>
