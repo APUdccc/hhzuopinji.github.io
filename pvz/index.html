@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>植物大战僵尸 · 网页版</title>
+<meta name="description" content="经典塔防游戏网页复刻版：种植物、收阳光、守住你的房子！全部画面由 Canvas 原创绘制。">
+<meta name="theme-color" content="#1d3b12">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+    <canvas id="game"></canvas>
+
+    <!-- 主菜单 -->
+    <div id="menu" class="overlay show">
+        <div class="board">
+            <div class="title">
+                <span class="t1">植物大战僵尸</span>
+                <span class="t2">网 页 复 刻 版</span>
+            </div>
+            <div class="levels" id="levels"></div>
+            <div class="help">
+                点击上方卡片选择植物 → 点击草坪种下 · 点击阳光收集 · 别让僵尸进屋！<br>
+                <span>快捷键：数字键选卡 · Q 铲子 · Esc 取消 · 空格暂停</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 暂停 -->
+    <div id="pause" class="overlay">
+        <div class="board small">
+            <h2>游戏暂停</h2>
+            <button class="btn" data-act="resume">继续游戏</button>
+            <button class="btn alt" data-act="restart">重新开始</button>
+            <button class="btn alt" data-act="menu">返回主菜单</button>
+        </div>
+    </div>
+
+    <!-- 胜利 -->
+    <div id="win" class="overlay">
+        <div class="board small">
+            <div class="badge">🏆</div>
+            <h2>守住了！</h2>
+            <p id="winText">你成功击退了所有僵尸。</p>
+            <button class="btn" data-act="next">下一关</button>
+            <button class="btn alt" data-act="menu">返回主菜单</button>
+        </div>
+    </div>
+
+    <!-- 失败 -->
+    <div id="lose" class="overlay dark">
+        <div class="lose-wrap">
+            <h1 class="lose-title">僵尸吃掉了<br>你的脑子！</h1>
+            <div class="row">
+                <button class="btn" data-act="restart">再试一次</button>
+                <button class="btn alt" data-act="menu">返回主菜单</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="rotate">
+    <div>📱↻</div>
+    <p>横屏体验更佳</p>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
