@@ -6,7 +6,7 @@
 
 | 系统 | 方式 |
 | --- | --- |
-| Windows | 双击 `启动.bat` |
+| Windows | 双击 `start.bat` |
 | macOS / Linux | `./start.sh` |
 | 任意 | `node server.js`，然后打开 <http://localhost:8686> |
 
