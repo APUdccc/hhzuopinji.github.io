@@ -17,6 +17,7 @@ const { spawn, execFile } = require('child_process');
 
 const PORT = Number(process.env.PORT) || 8686;
 const HOST = process.env.HOST || '127.0.0.1';
+const TOKEN = process.env.GALLERY_TOKEN || ''; // 设置后，所有请求都需要口令（对局域网开放时建议设置）
 const DATA_DIR = process.env.GALLERY_DATA || path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
@@ -82,9 +83,12 @@ function makePool(n) {
 
 /* ───────────────────────── 配置（媒体源 / 收藏夹） ───────────────────────── */
 
-let config = { roots: [], favorites: [] };
+const DEFAULT_SETTINGS = { pregenThumbs: 'video' }; // video | all | off
+let config = { roots: [], favorites: [], positions: {}, settings: { ...DEFAULT_SETTINGS } };
 let favSet = new Set();
 let favVersion = 0;
+let posVersion = 0;
+const MAX_POSITIONS = 300;
 
 const favKey = (k, r, p) => `${k}|${r}|${p}`;
 
@@ -93,6 +97,8 @@ function loadConfig() {
     const c = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
     config.roots = Array.isArray(c.roots) ? c.roots : [];
     config.favorites = Array.isArray(c.favorites) ? c.favorites : [];
+    config.positions = c.positions && typeof c.positions === 'object' ? c.positions : {};
+    config.settings = { ...DEFAULT_SETTINGS, ...(c.settings || {}) };
   } catch {
     /* 首次运行 */
   }
@@ -108,10 +114,20 @@ function writeJsonAtomic(file, data) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data));
-  fs.renameSync(tmp, file);
+  try {
+    fs.renameSync(tmp, file);
+  } catch {
+    // Windows 上目标文件被杀毒/索引程序短暂占用时 rename 会失败，退回直接覆盖写
+    fs.writeFileSync(file, JSON.stringify(data));
+    fs.rmSync(tmp, { force: true });
+  }
 }
 
 const saveConfig = () => writeJsonAtomic(CONFIG_FILE, config);
+let saveTimer = null;
+const saveConfigSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(saveConfig, 800); };
+const posKey = (r, p) => `${r}|${p}`;
+const posOf = (r, p) => { const v = config.positions[posKey(r, p)]; return v ? v.s : 0; };
 const findRoot = (id) => config.roots.find((r) => r.id === id);
 
 function samePath(a, b) {
@@ -264,6 +280,78 @@ async function readMp4Info(file) {
   }
 }
 
+/* MKV / WebM（EBML）：只读文件头部，取视频轨像素尺寸和时长 */
+function parseEbml(buf) {
+  const MASTER = new Set([0x18538067, 0x1549a966, 0x1654ae6b, 0xae, 0xe0]); // Segment Info Tracks TrackEntry Video
+  const res = { w: 0, h: 0, t: 0 };
+  let scale = 1e6, dur = 0;
+  const readId = (p) => {
+    const b = buf[p];
+    if (b === undefined) return null;
+    let len = 1, mask = 0x80;
+    while (len <= 4 && !(b & mask)) { len++; mask >>= 1; }
+    if (len > 4 || p + len > buf.length) return null;
+    let id = 0;
+    for (let i = 0; i < len; i++) id = id * 256 + buf[p + i];
+    return { id, len };
+  };
+  const readSize = (p) => {
+    const b = buf[p];
+    if (b === undefined) return null;
+    let len = 1, mask = 0x80;
+    while (len <= 8 && !(b & mask)) { len++; mask >>= 1; }
+    if (len > 8 || p + len > buf.length) return null;
+    let v = b & (mask - 1);
+    let unknown = v === mask - 1;
+    for (let i = 1; i < len; i++) {
+      v = v * 256 + buf[p + i];
+      if (buf[p + i] !== 0xff) unknown = false;
+    }
+    return { size: unknown ? -1 : v, len };
+  };
+  const uint = (s, e) => { let v = 0; for (let i = s; i < e && i < s + 8; i++) v = v * 256 + buf[i]; return v; };
+  let pw = 0, ph = 0;
+  const walk = (start, end) => {
+    let p = start;
+    while (p < end) {
+      const id = readId(p);
+      if (!id) return false;
+      const sz = readSize(p + id.len);
+      if (!sz) return false;
+      const ds = p + id.len + sz.len;
+      const de = sz.size < 0 ? end : Math.min(ds + sz.size, Number.MAX_SAFE_INTEGER);
+      if (id.id === 0x1f43b675) return true; // Cluster：头部信息已读完
+      if (MASTER.has(id.id)) {
+        if (id.id === 0xe0) { pw = 0; ph = 0; }
+        if (walk(ds, Math.min(de, end))) return true;
+        if (id.id === 0xe0 && pw * ph > res.w * res.h) { res.w = pw; res.h = ph; }
+      } else if (id.id === 0xb0 && de <= end) pw = uint(ds, de);
+      else if (id.id === 0xba && de <= end) ph = uint(ds, de);
+      else if (id.id === 0x2ad7b1 && de <= end) scale = uint(ds, de) || scale;
+      else if (id.id === 0x4489 && de <= end) {
+        if (de - ds === 4) dur = buf.readFloatBE(ds);
+        else if (de - ds === 8) dur = buf.readDoubleBE(ds);
+      }
+      if (de >= end) return false;
+      p = de;
+    }
+    return false;
+  };
+  walk(0, buf.length);
+  if (dur) res.t = (dur * scale) / 1e9;
+  return res.w ? res : null;
+}
+
+async function readEbmlInfo(file) {
+  const fh = await fsp.open(file, 'r');
+  try {
+    const b = await readAt(fh, 0, 1024 * 1024);
+    return b.length > 4 && b.readUInt32BE(0) === 0x1a45dfa3 ? parseEbml(b) : null;
+  } finally {
+    await fh.close();
+  }
+}
+
 async function ffprobeInfo(file) {
   const out = await run('ffprobe', [
     '-v', 'error', '-select_streams', 'v:0',
@@ -291,6 +379,7 @@ async function probe(file, kind, ext) {
     if (!r && caps.ffprobe && ext !== 'svg') r = await ffprobeInfo(file);
   } else {
     if (['mp4', 'm4v', 'mov', '3gp'].includes(ext)) r = await readMp4Info(file).catch(() => null);
+    else if (ext === 'mkv' || ext === 'webm') r = await readEbmlInfo(file).catch(() => null);
     if ((!r || !r.w) && caps.ffprobe) r = (await ffprobeInfo(file)) || r;
   }
   return r;
@@ -341,7 +430,7 @@ function persistIndex(rootId, kind, idx) {
   }
 }
 
-async function runScan(rootId, kind) {
+async function runScan(rootId, kind, dir = '') {
   const root = findRoot(rootId);
   const idx = getIndex(rootId, kind);
   if (!root || idx.scan.state === 'running') return;
@@ -350,18 +439,26 @@ async function runScan(rootId, kind) {
     idx.scan = { state: 'error', error: '路径不存在或无法访问', updatedAt: Date.now() };
     return;
   }
+  dir = dir.replace(/^\/+|\/+$/g, '');
+  const startAbs = resolveInRoot(root, dir);
+  if (!startAbs || !fs.existsSync(startAbs)) {
+    idx.scan = { state: 'error', error: '要扫描的文件夹不存在', updatedAt: Date.now() };
+    return;
+  }
 
   const exts = kind === 'image' ? IMAGE_EXT : VIDEO_EXT;
   const prev = idx.map;
-  const live = idx.items.length === 0; // 首次扫描：边扫边显示；重新扫描：完成后一次性替换
-  const items = [];
-  const map = new Map();
+  // 整库首次扫描：边扫边显示；重新扫描 / 只扫某个文件夹：完成后一次性替换
+  const live = !dir && idx.items.length === 0;
+  const prefix = dir ? `${dir}/` : '';
+  const items = dir ? idx.items.filter((it) => !(it.d === dir || it.d.startsWith(prefix))) : [];
+  const map = new Map(items.map((it) => [it.p, it]));
   const sc = { state: 'running', dirs: 0, found: 0, probed: 0, errors: 0, startedAt: Date.now(), cancel: false };
   idx.scan = sc;
   if (live) { idx.items = items; idx.map = map; }
 
   const pool = makePool(kind === 'image' ? 12 : 4);
-  const stack = [''];
+  const stack = [dir];
   const tick = setInterval(() => { if (live) { idx.version++; } }, 400);
 
   const handleFile = async (rel) => {
@@ -419,6 +516,7 @@ async function runScan(rootId, kind) {
     clearInterval(tick);
     idx.version++;
   }
+  if (sc.state === 'done') pregenThumbs(rootId, kind).catch(() => {});
 }
 
 function scanStatus(rootId, kind) {
@@ -532,7 +630,7 @@ function runQuery(p) {
   if (p.scope !== 'fav') {
     for (const r of p.root ? [p.root] : config.roots.map((x) => x.id)) verParts.push(getIndex(r, p.kind).version);
   }
-  const key = JSON.stringify([p.scope, p.kind, p.root, p.dir, p.rec, p.q, p.types, p.res, p.sort, p.order, p.group, p.favOnly, verParts]);
+  const key = JSON.stringify([p.scope, p.kind, p.root, p.dir, p.rec, p.q, p.types, p.res, p.sort, p.order, p.group, p.favOnly, p.resume, posVersion, verParts]);
   const hit = queryCache.get(key);
   if (hit) return hit;
 
@@ -565,6 +663,7 @@ function runQuery(p) {
       if (!tokens.every((t) => hay.includes(t))) continue;
     }
     if (p.favOnly && !favSet.has(favKey('f', ref.r, it.p))) continue;
+    if (p.resume && !posOf(ref.r, it.p)) continue;
     const b = resBucket(it);
     const okT = !typeSet || typeSet.has(it.e);
     const okR = !resSet || resSet.has(b);
@@ -602,7 +701,9 @@ function runQuery(p) {
   if (p.group === 'name') groupCmp = (a, b) => (nameGroupRank(a.g) - nameGroupRank(b.g)) * dirSign;
   else if (p.group === 'res') groupCmp = (a, b) => RES_ORDER.indexOf(a.g) - RES_ORDER.indexOf(b.g);
   else if (p.group === 'type' || p.group === 'dir') groupCmp = (a, b) => collator.compare(a.g, b.g);
-  matched.sort(groupCmp ? (a, b) => groupCmp(a, b) || sortCmp(a, b) : sortCmp);
+  const recentCmp = (a, b) => (config.positions[posKey(b.r, b.it.p)] || { t: 0 }).t - (config.positions[posKey(a.r, a.it.p)] || { t: 0 }).t;
+  if (p.resume) matched.sort(recentCmp);
+  else matched.sort(groupCmp ? (a, b) => groupCmp(a, b) || sortCmp(a, b) : sortCmp);
 
   const groups = [];
   if (p.group !== 'none') {
@@ -637,6 +738,7 @@ function parseQuery(sp) {
     order: sp.get('order') === 'desc' ? 'desc' : 'asc',
     group: ['name', 'type', 'res', 'dir'].includes(sp.get('group')) ? sp.get('group') : 'none',
     favOnly: sp.get('favOnly') === '1',
+    resume: sp.get('resume') === '1',
     offset: Math.max(0, parseInt(sp.get('offset'), 10) || 0),
     limit: Math.min(1000, Math.max(1, parseInt(sp.get('limit'), 10) || 200)),
   };
@@ -649,14 +751,14 @@ function handleItems(sp) {
   const page = list.slice(p.offset, p.offset + p.limit).map((ref) => ({
     r: ref.r, k: ref.k, p: ref.it.p, n: ref.it.n, d: ref.it.d, e: ref.it.e, s: ref.it.s, m: ref.it.m,
     w: ref.it.w, h: ref.it.h, t: ref.it.t, b: ref.b || resBucket(ref.it), g: ref.g,
-    f: favSet.has(favKey('f', ref.r, ref.it.p)) ? 1 : 0,
+    f: favSet.has(favKey('f', ref.r, ref.it.p)) ? 1 : 0, rp: posOf(ref.r, ref.it.p),
   }));
   const out = { total: list.length, offset: p.offset, items: page };
   if (p.offset === 0) {
     out.facets = facets;
     out.groups = groups;
     out.folders = [];
-    if (p.scope === 'lib' && p.root && !p.rec && !p.q && !p.favOnly) {
+    if (p.scope === 'lib' && p.root && !p.rec && !p.q && !p.favOnly && !p.resume) {
       out.folders = treeChildren(p.root, p.kind, p.dir).map((c) => ({
         r: p.root, dir: c.dir, name: c.name, total: c.total, f: favSet.has(favKey('d', p.root, c.dir)) ? 1 : 0,
       }));
@@ -723,6 +825,33 @@ async function browse(p) {
   return { path: abs, parent: up === abs ? '' : up, entries, places };
 }
 
+/* ───────────────────────── 外挂字幕（同名 .srt / .vtt） ───────────────────────── */
+
+function listSubs(root, rel) {
+  const abs = resolveInRoot(root, rel);
+  if (!abs) return [];
+  const dir = path.dirname(abs);
+  const stem = path.basename(abs, path.extname(abs));
+  const relDir = path.posix.dirname(rel) === '.' ? '' : path.posix.dirname(rel);
+  let names;
+  try { names = fs.readdirSync(dir); } catch { return []; }
+  return names
+    .filter((n) => /\.(srt|vtt)$/i.test(n) && n.startsWith(`${stem}.`))
+    .map((n) => {
+      const mid = n.slice(stem.length + 1, n.lastIndexOf('.'));
+      return { label: mid || '字幕', lang: mid.slice(0, 8) || 'zh', path: relDir ? `${relDir}/${n}` : n };
+    });
+}
+
+function readSubAsVtt(abs) {
+  const raw = fs.readFileSync(abs);
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(raw); } catch { text = new TextDecoder('gbk').decode(raw); }
+  text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+  if (/^WEBVTT/.test(text)) return text;
+  return `WEBVTT\n\n${text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')}`;
+}
+
 /* ───────────────────────── 缩略图 / 转码（需要 ffmpeg，可选） ───────────────────────── */
 
 const thumbPool = makePool(3);
@@ -740,7 +869,7 @@ function ffmpegThumb(src, out, kind, w, dur) {
   });
 }
 
-async function getThumb(root, rel, w) {
+async function getThumb(root, rel, w, direct) {
   const abs = resolveInRoot(root, rel);
   const kind = kindOfExt(extOf(rel));
   if (!abs || !kind) return null;
@@ -749,17 +878,47 @@ async function getThumb(root, rel, w) {
   const out = path.join(THUMB_DIR, `${key}.jpg`);
   if (fs.existsSync(out)) return out;
   if (thumbJobs.has(out)) return thumbJobs.get(out);
-  const job = new Promise((resolve) => {
-    thumbPool.add(async () => {
+  const work = async (resolve) => {
+    try {
       fs.mkdirSync(THUMB_DIR, { recursive: true });
       const item = getIndex(root.id, kind).map.get(rel);
       let ok = await ffmpegThumb(abs, out, kind, w, item ? item.t : 0);
       if (!ok && kind === 'video') ok = await ffmpegThumb(abs, out, kind, w, 0);
       resolve(ok ? out : null);
-    });
+    } catch {
+      resolve(null);
+    }
+  };
+  const job = new Promise((resolve) => {
+    if (direct) work(resolve); else thumbPool.add(() => work(resolve));
   }).finally(() => thumbJobs.delete(out));
   thumbJobs.set(out, job);
   return job;
+}
+
+/* 扫描完成后在后台低优先级预生成缩略图（单线程，不抢交互请求） */
+const pregenPool = makePool(1);
+let pregenToken = 0;
+async function pregenThumbs(rootId, kind) {
+  const mode = config.settings.pregenThumbs;
+  if (!caps.ffmpeg || mode === 'off' || (mode === 'video' && kind !== 'video')) return;
+  const root = findRoot(rootId);
+  if (!root) return;
+  const my = ++pregenToken;
+  for (const it of getIndex(rootId, kind).items.slice()) {
+    if (my !== pregenToken || !findRoot(rootId)) return;
+    await pregenPool.add(() => getThumb(root, it.p, 480, true).catch(() => {}));
+  }
+}
+
+async function thumbStats() {
+  let count = 0, bytes = 0;
+  try {
+    for (const f of await fsp.readdir(THUMB_DIR)) {
+      try { bytes += (await fsp.stat(path.join(THUMB_DIR, f))).size; count++; } catch { /* 忽略 */ }
+    }
+  } catch { /* 目录还不存在 */ }
+  return { count, bytes };
 }
 
 /* ───────────────────────── HTTP ───────────────────────── */
@@ -827,6 +986,32 @@ function hostAllowed(req) {
   if (HOST !== '127.0.0.1' && HOST !== 'localhost' && HOST !== '::1') return true;
   const h = (req.headers.host || '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
   return h === 'localhost' || h === '127.0.0.1' || h === '::1';
+}
+
+const tokenHash = (t) => crypto.createHash('sha256').update(String(t)).digest();
+function tokenOk(t) {
+  return typeof t === 'string' && crypto.timingSafeEqual(tokenHash(t), tokenHash(TOKEN));
+}
+
+/* 返回 true 表示放行；否则已经写好响应（401 或带 Cookie 的跳转） */
+function authorize(req, res, u) {
+  const cookies = {};
+  for (const part of (req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) { try { cookies[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch { /* 忽略 */ } }
+  }
+  if (tokenOk(cookies.mg_token)) return true;
+  if (tokenOk(u.searchParams.get('token'))) {
+    u.searchParams.delete('token');
+    res.writeHead(302, {
+      'Set-Cookie': `mg_token=${encodeURIComponent(TOKEN)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000`,
+      Location: u.pathname + u.search,
+    });
+    res.end();
+    return false;
+  }
+  send(res, 401, '需要访问口令：请用 http://<地址>:<端口>/?token=<口令> 打开一次');
+  return false;
 }
 
 function originAllowed(req) {
@@ -927,7 +1112,7 @@ async function api(req, res, u) {
           const idx = getIndex(id, kind);
           if (idx.scan.state === 'running') idx.scan.cancel = true;
         } else {
-          runScan(id, kind).catch((e) => console.error('扫描失败:', e));
+          runScan(id, kind, body.root ? String(body.dir || '') : '').catch((e) => console.error('扫描失败:', e));
         }
       }
       return send(res, 200, { ok: true });
@@ -942,6 +1127,45 @@ async function api(req, res, u) {
   }
 
   if (route === 'items' && method === 'GET') return send(res, 200, handleItems(sp));
+
+  if (route === 'pos' && method === 'POST') {
+    const root = findRoot(String(body.r || ''));
+    const p = String(body.p || '');
+    if (!root || !p) throw new HttpError(400, '参数错误');
+    const key = posKey(root.id, p);
+    const sec = Math.floor(Number(body.s) || 0);
+    if (sec > 0) {
+      delete config.positions[key];
+      config.positions[key] = { s: sec, t: Date.now() };
+      const keys = Object.keys(config.positions);
+      if (keys.length > MAX_POSITIONS) for (const k of keys.slice(0, keys.length - MAX_POSITIONS)) delete config.positions[k];
+    } else delete config.positions[key];
+    posVersion++;
+    saveConfigSoon();
+    return send(res, 200, { ok: true });
+  }
+
+  if (route === 'subs' && method === 'GET') {
+    const root = findRoot(sp.get('r') || '');
+    if (!root) throw new HttpError(404, '媒体源不存在');
+    return send(res, 200, listSubs(root, sp.get('p') || ''));
+  }
+
+  if (route === 'settings') {
+    if (method === 'POST') {
+      if (['video', 'all', 'off'].includes(body.pregenThumbs)) config.settings.pregenThumbs = body.pregenThumbs;
+      saveConfig();
+    }
+    return send(res, 200, config.settings);
+  }
+
+  if (route === 'thumbs') {
+    if (method === 'POST' && body.action === 'clear') {
+      pregenToken++;
+      await fsp.rm(THUMB_DIR, { recursive: true, force: true });
+    }
+    return send(res, 200, await thumbStats());
+  }
 
   if (route === 'favorites' && method === 'GET') return send(res, 200, { dirs: favDirs() });
 
@@ -1007,6 +1231,7 @@ const server = http.createServer(async (req, res) => {
     if (!hostAllowed(req)) return send(res, 403, 'Forbidden');
     const u = new URL(req.url, 'http://localhost');
     const pn = u.pathname;
+    if (TOKEN && !authorize(req, res, u)) return;
 
     if (pn.startsWith('/api/')) return await api(req, res, u);
 
@@ -1014,6 +1239,17 @@ const server = http.createServer(async (req, res) => {
       const t = mediaTarget(u, '/file/');
       if (!t) return send(res, 404, 'Not found');
       return serveFile(req, res, t.abs, MIME[normExt(t.ext)] || MIME[t.ext] || 'application/octet-stream');
+    }
+
+    if (pn.startsWith('/sub/')) {
+      const rest = pn.slice(5);
+      const slash = rest.indexOf('/');
+      const root = slash > 0 && findRoot(rest.slice(0, slash));
+      let rel = '';
+      try { rel = decodeURIComponent(rest.slice(slash + 1)); } catch { /* 忽略 */ }
+      const abs = root && /\.(srt|vtt)$/i.test(rel) ? resolveInRoot(root, rel) : null;
+      if (!abs || !fs.existsSync(abs)) return send(res, 404, 'Not found');
+      return send(res, 200, Buffer.from(readSubAsVtt(abs), 'utf8'), { 'Content-Type': 'text/vtt; charset=utf-8' });
     }
 
     if (pn.startsWith('/thumb/')) {
@@ -1065,7 +1301,8 @@ async function main() {
     console.log(`  → http://${shown}:${PORT}`);
     console.log(`  ffmpeg: ${caps.ffmpeg ? '可用（缩略图 / 转码播放）' : '未检测到（使用原图 / 浏览器内抽帧作为缩略图）'}`);
     console.log(`  ffprobe: ${caps.ffprobe ? '可用' : '未检测到（MP4/MOV 仍可解析分辨率，其它视频格式分辨率为"未知"）'}`);
-    if (HOST !== '127.0.0.1') console.log('  ⚠ 已对外监听：后台可浏览本机目录，请仅在可信网络使用');
+    if (TOKEN) console.log(`  访问口令已启用：首次请打开 http://${shown}:${PORT}/?token=${TOKEN}`);
+    else if (HOST !== '127.0.0.1' && HOST !== 'localhost') console.log('  ⚠ 已对外监听且没有设置口令：后台可浏览本机目录。建议加上 GALLERY_TOKEN=口令');
     console.log(`  数据目录: ${DATA_DIR}\n`);
   });
 }

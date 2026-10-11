@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "本地图片 / 视频展示库：后台添加路径、目录层级、按名称/类型/分辨率分类、收藏夹",
   "private": true,
-  "scripts": { "start": "node server.js" },
+  "scripts": { "start": "node server.js", "test": "node --test test/api.test.js" },
   "engines": { "node": ">=18" }
 }

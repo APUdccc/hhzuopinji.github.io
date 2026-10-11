@@ -238,6 +238,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .card:hover .play-ov { opacity: 1; }
 .card:hover .play-ov span { transform: scale(1); }
 .card .thumb video.pv { z-index: 1; }
+.rbar { position: absolute; z-index: 2; left: 0; bottom: 0; height: 3px; background: var(--grad); border-radius: 0 3px 3px 0; }
 .fav-btn { position: absolute; z-index: 3; right: 6px; top: 6px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: rgba(8, 10, 16, .55); backdrop-filter: blur(6px); opacity: 0; transform: scale(.85); transition: .18s; }
 .fav-btn .ic { width: 16px; height: 16px; }
 .card:hover .fav-btn, .fav-btn.on { opacity: 1; transform: scale(1); }

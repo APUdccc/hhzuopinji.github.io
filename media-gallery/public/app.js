@@ -55,7 +55,6 @@ function toast(msg, err) {
 
 /* ═════════════ 状态 ═════════════ */
 const PREF_KEY = 'mg.prefs.v1';
-const POS_KEY = 'mg.pos.v1';
 const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 忽略 */ } };
 
@@ -68,7 +67,7 @@ const savePrefs = () => lsSet(PREF_KEY, { ...P, expanded: [...S.expanded] });
 const S = {
   info: null, roots: [], favDirs: [],
   expanded: new Set(P.expanded),
-  q: '', types: new Set(), res: new Set(), favOnly: false,
+  q: '', types: new Set(), res: new Set(), favOnly: false, resume: false,
   items: [], total: 0, folders: [], facets: { types: [], res: [] }, groupCounts: {},
   loading: false, req: 0, lastG: null, treeCache: new Map(), counts: new Map(),
 };
@@ -171,6 +170,7 @@ function queryString(offset) {
     p.set('dir', P.dir);
     if (P.rec) p.set('rec', '1');
     if (S.favOnly) p.set('favOnly', '1');
+    if (S.resume && P.mode === 'video') p.set('resume', '1');
   }
   if (S.q) p.set('q', S.q);
   if (S.types.size) p.set('types', [...S.types].join(','));
@@ -262,6 +262,7 @@ function renderHead() {
   const unscanned = scopeRoots().every((r) => r.scans[kind].state === 'none');
   if (kind === 'image') { if (!unscanned) h += `<button class="btn sm" data-act="scan">${icon('scan')}重新扫描</button>`; }
   else h += `<button class="btn sm" data-act="scan">${icon('refresh')}刷新</button>`;
+  if (P.root && P.dir) h += `<button class="btn sm" data-act="scandir" title="只重新扫描当前文件夹，比整库扫描快">${icon('scan')}扫描此文件夹</button>`;
   a.innerHTML = h;
 }
 
@@ -274,7 +275,7 @@ function renderFilters() {
   if (P.mode === 'fav') {
     h += `<div class="fgroup"><span class="flabel">种类</span>${[['all', '全部'], ['video', '视频'], ['image', '图片']].map(([v, l]) => chip('favkind', v, l, null, P.favKind === v)).join('')}</div>`;
   } else {
-    h += `<div class="fgroup">${chip('fav', '1', `${icon('star')}仅收藏`, null, S.favOnly, 'star')}</div>`;
+    h += `<div class="fgroup">${chip('fav', '1', `${icon('star')}仅收藏`, null, S.favOnly, 'star')}${P.mode === 'video' ? chip('resume', '1', `${icon('play')}继续观看`, null, S.resume) : ''}</div>`;
   }
   const groups = [['none', '不分组'], ['name', '名称'], ['type', '类型'], ['res', '分辨率'], ['dir', '目录']];
   h += `<div class="fgroup"><span class="flabel">分类</span>${groups.map(([v, l]) => chip('group', v, l, null, P.group === v)).join('')}</div>`;
@@ -289,7 +290,7 @@ function renderFilters() {
   if (res.length > 1 || S.res.size) {
     h += `<div class="fgroup"><span class="flabel">分辨率</span>${res.map((r) => chip('res', r.b, RES_LABEL[r.b], r.count, S.res.has(r.b))).join('')}</div>`;
   }
-  if (S.types.size || S.res.size || S.q) h += `<div class="fgroup">${chip('clear', '1', '清除筛选', null, false, 'clear')}</div>`;
+  if (S.types.size || S.res.size || S.q || S.resume) h += `<div class="fgroup">${chip('clear', '1', '清除筛选', null, false, 'clear')}</div>`;
   $('#filters').innerHTML = h;
 }
 
@@ -350,7 +351,7 @@ function emptyHTML() {
       <div class="acts"><button class="btn primary" data-act="scanun">${icon('scan')}开始扫描${roots.length > 1 ? '全部' : ''}</button></div></div>`;
   }
   if (running) return '';
-  return `<div class="nores">${icon(kind === 'video' ? 'video' : 'image')}<div>${S.q || S.types.size || S.res.size || S.favOnly ? '没有符合条件的内容' : '这里还没有' + (kind === 'video' ? '视频' : '图片')}</div></div>`;
+  return `<div class="nores">${icon(kind === 'video' ? 'video' : 'image')}<div>${S.q || S.types.size || S.res.size || S.favOnly || S.resume ? '没有符合条件的内容' : '这里还没有' + (kind === 'video' ? '视频' : '图片')}</div></div>`;
 }
 
 /* ═════════════ 渲染：网格 ═════════════ */
@@ -382,6 +383,7 @@ function cardHTML(it, i) {
     <div class="thumb"${v && !caps().ffmpeg ? ' data-v="1"' : ''}>${thumbInner(it)}
       <span class="badge b-ext">${esc(it.e)}</span>${resBadge(it)}${v && it.t ? `<span class="badge b-dur">${fmtDur(it.t)}</span>` : ''}
       ${v ? `<div class="play-ov"><span>${icon('play')}</span></div>` : ''}
+      ${v && it.rp && it.t ? `<i class="rbar" style="width:${Math.min(100, Math.round((it.rp / it.t) * 100))}%"></i>` : ''}
       <button class="fav-btn${it.f ? ' on' : ''}" data-fav title="收藏">${icon('star')}</button>
     </div>
     <div class="meta"><div class="name">${esc(it.n)}</div><div class="sub">${esc(sub)}</div></div>
@@ -629,7 +631,7 @@ function navigate(root, dir, opts = {}) {
     const segs = dir ? dir.split('/') : [];
     for (let i = 1; i < segs.length; i++) S.expanded.add(treeKey(root, segs.slice(0, i).join('/')));
   }
-  S.types.clear(); S.res.clear(); S.favOnly = false;
+  S.types.clear(); S.res.clear(); S.favOnly = false; S.resume = false;
   savePrefs();
   applyPrefsToUI();
   if (opts.rebuildTree !== false) renderTree(); else markSel();
@@ -642,7 +644,7 @@ function setMode(mode) {
   if (P.mode === mode) return;
   P.mode = mode;
   if (mode !== 'fav') { P.lastLib = mode; P.dir = ''; }
-  S.types.clear(); S.res.clear(); S.favOnly = false;
+  S.types.clear(); S.res.clear(); S.favOnly = false; S.resume = false;
   savePrefs();
   applyPrefsToUI();
   renderTree();
@@ -743,6 +745,10 @@ function bindUI() {
   $('#mactions').addEventListener('click', (e) => {
     const a = e.target.closest('[data-act]'); if (!a) return;
     if (a.dataset.act === 'rec') { P.rec = !P.rec; savePrefs(); renderHead(); loadItems(true); }
+    if (a.dataset.act === 'scandir') {
+      const kind = P.mode;
+      post('/api/scan', { root: P.root, dir: P.dir, kind, action: 'start' }).then(() => { toast('开始扫描当前文件夹'); return afterScanKick(); }).catch((er) => toast(er.message, true));
+    }
     if (a.dataset.act === 'scan') {
       const kind = P.mode;
       const run = scopeRoots().filter((r) => r.scans[kind].state !== 'running');
@@ -770,11 +776,12 @@ function bindUI() {
     const v = c.dataset.v;
     switch (c.dataset.f) {
       case 'fav': S.favOnly = !S.favOnly; break;
+      case 'resume': S.resume = !S.resume; break;
       case 'favkind': P.favKind = v; savePrefs(); break;
       case 'group': P.group = v; savePrefs(); break;
       case 'type': S.types.has(v) ? S.types.delete(v) : S.types.add(v); break;
       case 'res': S.res.has(v) ? S.res.delete(v) : S.res.add(v); break;
-      case 'clear': S.types.clear(); S.res.clear(); S.q = ''; $('#q').value = ''; break;
+      case 'clear': S.types.clear(); S.res.clear(); S.resume = false; S.q = ''; $('#q').value = ''; break;
     }
     loadItems(true);
   });
@@ -906,7 +913,7 @@ function closeViewer() {
 }
 
 function teardownMedia() {
-  if (V.vid) { savePos(); V.vid.pause(); V.vid.removeAttribute('src'); V.vid.load(); V.vid = null; }
+  if (V.vid) { savePos(true); V.vid.pause(); V.vid.removeAttribute('src'); V.vid.load(); V.vid = null; }
   V.img = null;
   $('#vStage').innerHTML = '';
   $('#vStage').classList.remove('img', 'drag');
@@ -1022,16 +1029,17 @@ function rotate(d) {
 }
 
 /* 视频 */
-const posKey = (it) => `${it.r}|${it.p}`;
-function savePos() {
+let lastPosSent = 0;
+function savePos(force) {
   const v = V.vid, it = S.items[V.i];
   if (!v || !it || !v.duration || v.duration < 90) return;
-  const m = lsGet(POS_KEY, {});
-  const k = posKey(it);
-  if (v.currentTime > 5 && v.currentTime < v.duration - 8) { delete m[k]; m[k] = Math.floor(v.currentTime); } else delete m[k];
-  const keys = Object.keys(m);
-  if (keys.length > 200) for (const old of keys.slice(0, keys.length - 200)) delete m[old];
-  lsSet(POS_KEY, m);
+  const t = Math.floor(v.currentTime);
+  const done = t > v.duration - 8;
+  const val = t > 5 && !done ? t : 0;
+  if (!force && Date.now() - lastPosSent < 4000) return;
+  lastPosSent = Date.now();
+  it.rp = val;
+  post('/api/pos', { r: it.r, p: it.p, s: val }).catch(() => {});
 }
 
 function showVideo(it) {
@@ -1044,19 +1052,30 @@ function showVideo(it) {
     v.playbackRate = P.rate;
     reportDim(it, v);
     if (!it.t && isFinite(v.duration)) it.t = v.duration;
-    const saved = lsGet(POS_KEY, {})[posKey(it)];
+    const saved = it.rp;
     if (saved && !V.tc && saved < v.duration - 8) { v.currentTime = saved; toast(`从 ${fmtDur(saved)} 继续播放`); }
   });
-  let last = 0;
-  v.addEventListener('timeupdate', () => { if (Date.now() - last > 4000) { last = Date.now(); savePos(); } });
+  v.addEventListener('timeupdate', () => savePos());
   v.addEventListener('volumechange', () => { P.vol = v.volume; P.muted = v.muted; savePrefs(); });
   v.addEventListener('ended', () => {
-    const m = lsGet(POS_KEY, {}); delete m[posKey(it)]; lsSet(POS_KEY, m);
+    it.rp = 0;
+    post('/api/pos', { r: it.r, p: it.p, s: 0 }).catch(() => {});
     if (P.autoNext && V.i < S.total - 1) stepViewer(1);
   });
   v.addEventListener('error', () => videoError(it, v));
   stage.append(v);
   V.vid = v;
+  api(`/api/subs?r=${it.r}&p=${encodeURIComponent(it.p)}`).then((subs) => {
+    if (V.vid !== v) return;
+    subs.forEach((sb, i) => {
+      const tr = document.createElement('track');
+      tr.kind = 'subtitles'; tr.label = sb.label; tr.srclang = sb.lang;
+      tr.src = `/sub/${it.r}/${encPath(sb.path)}`;
+      if (i === 0) tr.default = true;
+      v.append(tr);
+    });
+    if (subs.length) toast(`已加载字幕：${subs.map((x) => x.label).join('、')}（播放器右下角可切换）`);
+  }).catch(() => {});
   $('#vBottom').innerHTML =
     `<select id="vRate" title="播放速度">${[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => `<option value="${r}"${r === P.rate ? ' selected' : ''}>${r}x</option>`).join('')}</select>` +
     `<label><input type="checkbox" id="vAuto"${P.autoNext ? ' checked' : ''}>连播</label>`;
@@ -1212,6 +1231,13 @@ function renderAdmin() {
       <span class="hint" style="margin:0">添加后视频会自动扫描；图片需要在「图片」页手动点击开始扫描。</span>
     </div>
     <div class="picker" id="picker" hidden></div>
+    <div class="sec-t">缩略图缓存</div>
+    <div class="addrow" style="grid-template-columns:1fr auto auto;align-items:center">
+      <div><b style="font-weight:600">扫描完成后自动预生成缩略图</b><div class="hint" style="margin:2px 0 0">后台单线程低优先级运行，打开大文件夹时就不用等。需要 ffmpeg。</div></div>
+      <select class="select" id="setPregen" ${cp.ffmpeg ? '' : 'disabled'}><option value="video">仅视频</option><option value="all">图片和视频</option><option value="off">关闭</option></select>
+      <button class="btn" id="btnClearThumbs">${icon('trash')}清除缓存</button>
+    </div>
+    <div class="hint" id="thumbStat">&nbsp;</div>
     <div class="sec-t">运行环境</div>
     <div class="sysgrid">
       <div class="sysitem"><b><span class="dot ${cp.ffmpeg ? 'ok' : ''}"></span>ffmpeg</b><small>${cp.ffmpeg ? '已检测到：生成缩略图、转码播放（MKV/AVI/HEVC 等）' : '未检测到：缩略图使用原图 / 浏览器抽帧，无法转码'}</small></div>
@@ -1219,6 +1245,16 @@ function renderAdmin() {
       <div class="sysitem"><b><span class="dot ok"></span>数据目录</b><small>${esc(S.info.dataDir)}</small></div>
     </div>`;
   renderAdminRoots();
+  api('/api/settings').then((st) => { const el = $('#setPregen'); if (el) el.value = st.pregenThumbs; }).catch(() => {});
+  refreshThumbStat();
+}
+
+async function refreshThumbStat(action) {
+  try {
+    const t = action ? await post('/api/thumbs', { action }) : await api('/api/thumbs');
+    const el = $('#thumbStat');
+    if (el) el.textContent = `当前缓存 ${t.count} 张，占用 ${fmtSize(t.bytes)}`;
+  } catch { /* 忽略 */ }
 }
 
 async function loadPicker(p) {
@@ -1249,6 +1285,7 @@ document.addEventListener('click', async (e) => {
   if (e.target === $('#admin')) return closeAdmin();
   if (e.target.closest('#adminClose')) return closeAdmin();
 
+  if (e.target.closest('#btnClearThumbs')) { await refreshThumbStat('clear'); toast('缩略图缓存已清除'); return; }
   if (e.target.closest('#btnBrowse')) { AD.pickOpen = true; return loadPicker($('#addPath').value.trim() || ''); }
   const pk = e.target.closest('[data-p]');
   if (pk) {
@@ -1296,6 +1333,10 @@ document.addEventListener('click', async (e) => {
       }
     } catch (er) { toast(er.message, true); }
   }
+});
+
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'setPregen') post('/api/settings', { pregenThumbs: e.target.value }).then(() => toast('已保存')).catch((er) => toast(er.message, true));
 });
 
 document.addEventListener('keydown', (e) => {
