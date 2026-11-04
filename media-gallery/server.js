@@ -152,6 +152,22 @@ async function readAt(fh, pos, len) {
   return buf.subarray(0, bytesRead);
 }
 
+function exifOrientation(seg) {
+  if (seg.length < 14 || seg.toString('latin1', 0, 6) !== 'Exif\0\0') return 0;
+  const t = 6;
+  const le = seg.toString('latin1', t, t + 2) === 'II';
+  const r16 = (o) => (o + 2 <= seg.length ? (le ? seg.readUInt16LE(o) : seg.readUInt16BE(o)) : 0);
+  const r32 = (o) => (o + 4 <= seg.length ? (le ? seg.readUInt32LE(o) : seg.readUInt32BE(o)) : 0);
+  const ifd = t + r32(t + 4);
+  const n = r16(ifd);
+  for (let i = 0; i < n; i++) {
+    const e = ifd + 2 + i * 12;
+    if (e + 12 > seg.length) break;
+    if (r16(e) === 0x0112) return r16(e + 8);
+  }
+  return 0;
+}
+
 async function readImageSize(file, ext) {
   const fh = await fsp.open(file, 'r');
   try {
@@ -173,6 +189,7 @@ async function readImageSize(file, ext) {
     }
     if (b[0] === 0xff && b[1] === 0xd8) {
       let pos = 2;
+      let orient = 0;
       while (pos + 4 < st.size) {
         const s = pos + 4 <= b.length ? b.subarray(pos, pos + 4) : await readAt(fh, pos, 4);
         if (s[0] !== 0xff) { pos++; continue; }
@@ -180,9 +197,15 @@ async function readImageSize(file, ext) {
         if (mk === 0xff) { pos++; continue; }
         if (mk === 0xd8 || mk === 0x01 || (mk >= 0xd0 && mk <= 0xd7)) { pos += 2; continue; }
         const len = s.readUInt16BE(2);
+        if (mk === 0xe1 && !orient && len > 14) {
+          const seg = pos + 2 + len <= b.length ? b.subarray(pos + 4, pos + 2 + len) : await readAt(fh, pos + 4, Math.min(len - 2, 65536));
+          orient = exifOrientation(seg);
+        }
         if (mk >= 0xc0 && mk <= 0xcf && mk !== 0xc4 && mk !== 0xc8 && mk !== 0xcc) {
           const f = await readAt(fh, pos + 4, 5);
-          return { h: f.readUInt16BE(1), w: f.readUInt16BE(3) };
+          const h = f.readUInt16BE(1), w = f.readUInt16BE(3);
+          // EXIF 方向 5–8 表示需要旋转 90°：按照片实际显示方向记录宽高（浏览器显示时会自动旋转）
+          return orient >= 5 && orient <= 8 ? { w: h, h: w } : { w, h };
         }
         pos += 2 + len;
       }
@@ -403,7 +426,7 @@ function getIndex(rootId, kind) {
   const key = `${rootId}|${kind}`;
   let idx = indexes.get(key);
   if (idx) return idx;
-  idx = { items: [], map: new Map(), version: 1, tree: null, treeV: 0, scan: { state: 'none' } };
+  idx = { items: [], map: new Map(), dirs: new Map(), version: 1, tree: null, treeV: 0, scan: { state: 'none' } };
   try {
     const j = JSON.parse(fs.readFileSync(indexFile(rootId, kind), 'utf8'));
     for (const r of j.items) {
@@ -411,6 +434,7 @@ function getIndex(rootId, kind) {
       idx.items.push(it);
       idx.map.set(it.p, it);
     }
+    for (const [d, m, subs] of j.dirs || []) idx.dirs.set(d, { m, subs });
     idx.scan = { state: 'done', updatedAt: j.updatedAt || 0, found: idx.items.length };
   } catch {
     /* 尚未扫描 */
@@ -419,18 +443,36 @@ function getIndex(rootId, kind) {
   return idx;
 }
 
+const persistTimers = new Map();
+function persistIndexSoon(rootId, kind) {
+  const key = `${rootId}|${kind}`;
+  clearTimeout(persistTimers.get(key));
+  persistTimers.set(key, setTimeout(() => {
+    persistTimers.delete(key);
+    const idx = indexes.get(key);
+    // 正在扫描时不写：扫描结束会整体保存
+    if (idx && findRoot(rootId) && idx.scan.state !== 'running') persistIndex(rootId, kind, idx);
+  }, 2000));
+}
+
 function persistIndex(rootId, kind, idx) {
   try {
     writeJsonAtomic(indexFile(rootId, kind), {
       updatedAt: idx.scan.updatedAt,
       items: idx.items.map((i) => [i.p, i.s, i.m, i.w, i.h, Math.round(i.t * 10) / 10]),
+      dirs: [...idx.dirs].map(([d, v]) => [d, v.m, v.subs]),
     });
   } catch (e) {
     console.error('保存索引失败:', e.message);
   }
 }
 
-async function runScan(rootId, kind, dir = '') {
+/*
+ * opts.quick：快速刷新（视频页自动刷新用）。目录修改时间没变的目录直接沿用上次的结果，
+ * 不再逐个 stat 文件；新增 / 删除 / 改名都会改变所在目录的修改时间，所以能被发现。
+ * 原地覆盖修改的文件不会被发现——需要时在页面上点「刷新」做完整扫描。
+ */
+async function runScan(rootId, kind, dir = '', opts = {}) {
   const root = findRoot(rootId);
   const idx = getIndex(rootId, kind);
   if (!root || idx.scan.state === 'running') return;
@@ -453,6 +495,12 @@ async function runScan(rootId, kind, dir = '') {
   const prefix = dir ? `${dir}/` : '';
   const items = dir ? idx.items.filter((it) => !(it.d === dir || it.d.startsWith(prefix))) : [];
   const map = new Map(items.map((it) => [it.p, it]));
+  const prevDirs = idx.dirs;
+  const dirs = new Map(dir ? [...prevDirs].filter(([d]) => !(d === dir || d.startsWith(prefix))) : []);
+  const quick = !!opts.quick && !live;
+  const byDir = new Map();
+  if (quick) for (const it of idx.items) { let a = byDir.get(it.d); if (!a) byDir.set(it.d, (a = [])); a.push(it); }
+  const changed = [];
   const sc = { state: 'running', dirs: 0, found: 0, probed: 0, errors: 0, startedAt: Date.now(), cancel: false };
   idx.scan = sc;
   if (live) { idx.items = items; idx.map = map; }
@@ -474,6 +522,7 @@ async function runScan(rootId, kind, dir = '') {
     map.set(rel, it);
     sc.found++;
     if (!reuse) {
+      changed.push(it);
       const r = await probe(abs, kind, it.e);
       if (r) { it.w = r.w || 0; it.h = r.h || 0; it.t = r.t || 0; }
     }
@@ -483,14 +532,27 @@ async function runScan(rootId, kind, dir = '') {
   try {
     while (stack.length && !sc.cancel) {
       const rel = stack.pop();
+      let dm = 0;
+      try { dm = Math.floor((await fsp.stat(path.join(base, rel))).mtimeMs); } catch { sc.errors++; continue; }
+      const pd = prevDirs.get(rel);
+      if (quick && pd && pd.m === dm) {
+        sc.dirs++;
+        dirs.set(rel, pd);
+        for (const sub of pd.subs) stack.push(rel ? `${rel}/${sub}` : sub);
+        for (const it of byDir.get(rel) || []) { items.push(it); map.set(it.p, it); sc.found++; sc.probed++; }
+        continue;
+      }
       let ents;
       try { ents = await fsp.readdir(path.join(base, rel), { withFileTypes: true }); } catch { sc.errors++; continue; }
       sc.dirs++;
+      const subs = [];
+      dirs.set(rel, { m: dm, subs });
       for (const ent of ents) {
         const name = ent.name;
         const childRel = rel ? `${rel}/${name}` : name;
         if (ent.isDirectory()) {
           if (name.startsWith('.') || SKIP_DIRS.has(name.toLowerCase())) continue;
+          subs.push(name);
           stack.push(childRel);
         } else if (ent.isFile() || ent.isSymbolicLink()) {
           const e = extOf(name);
@@ -505,6 +567,7 @@ async function runScan(rootId, kind, dir = '') {
     } else {
       sc.state = 'done';
       if (!live) { idx.items = items; idx.map = map; }
+      idx.dirs = dirs;
     }
     sc.updatedAt = Date.now();
     sc.found = idx.items.length;
@@ -516,7 +579,7 @@ async function runScan(rootId, kind, dir = '') {
     clearInterval(tick);
     idx.version++;
   }
-  if (sc.state === 'done') pregenThumbs(rootId, kind).catch(() => {});
+  if (sc.state === 'done') pregenThumbs(rootId, kind, quick ? changed : null).catch(() => {});
 }
 
 function scanStatus(rootId, kind) {
@@ -899,7 +962,7 @@ async function getThumb(root, rel, w, direct) {
 /* 扫描完成后在后台低优先级预生成缩略图（单线程，不抢交互请求） */
 const pregenPool = makePool(1);
 const pregenTokens = new Map(); // `${rootId}|${kind}` -> 代号，再次扫描同一个库时只打断它自己的预生成
-async function pregenThumbs(rootId, kind) {
+async function pregenThumbs(rootId, kind, only) {
   const mode = config.settings.pregenThumbs;
   if (!caps.ffmpeg || mode === 'off' || (mode === 'video' && kind !== 'video')) return;
   const root = findRoot(rootId);
@@ -907,7 +970,7 @@ async function pregenThumbs(rootId, kind) {
   const tk = `${rootId}|${kind}`;
   const my = (pregenTokens.get(tk) || 0) + 1;
   pregenTokens.set(tk, my);
-  for (const it of getIndex(rootId, kind).items.slice()) {
+  for (const it of (only || getIndex(rootId, kind).items).slice()) {
     if (my !== pregenTokens.get(tk) || !findRoot(rootId)) return;
     await pregenPool.add(() => getThumb(root, it.p, 480, true).catch(() => {}));
   }
@@ -1114,7 +1177,7 @@ async function api(req, res, u) {
           const idx = getIndex(id, kind);
           if (idx.scan.state === 'running') idx.scan.cancel = true;
         } else {
-          runScan(id, kind, body.root ? String(body.dir || '') : '').catch((e) => console.error('扫描失败:', e));
+          runScan(id, kind, body.root ? String(body.dir || '') : '', { quick: !!body.quick }).catch((e) => console.error('扫描失败:', e));
         }
       }
       return send(res, 200, { ok: true });
@@ -1199,6 +1262,7 @@ async function api(req, res, u) {
         if (body.t > 0 && !it.t) it.t = body.t;
         const idx = getIndex(root.id, kind);
         idx.version++;
+        persistIndexSoon(root.id, kind);
       }
     }
     return send(res, 200, { ok: true });
@@ -1240,7 +1304,9 @@ const server = http.createServer(async (req, res) => {
     if (pn.startsWith('/file/')) {
       const t = mediaTarget(u, '/file/');
       if (!t) return send(res, 404, 'Not found');
-      return serveFile(req, res, t.abs, MIME[normExt(t.ext)] || MIME[t.ext] || 'application/octet-stream');
+      // URL 带 ?v=<修改时间> 时文件内容对这个 URL 是固定的，可以让浏览器缓存（虚拟滚动回收后重新出现时不必再请求）
+      const cache = u.searchParams.has('v') ? 'private, max-age=86400' : 'no-cache';
+      return serveFile(req, res, t.abs, MIME[normExt(t.ext)] || MIME[t.ext] || 'application/octet-stream', cache);
     }
 
     if (pn.startsWith('/sub/')) {

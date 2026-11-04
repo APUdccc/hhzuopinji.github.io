@@ -18,6 +18,13 @@ const jpeg = (w, h) => Buffer.concat([
   Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.from('JFIF\0'), Buffer.from([1, 1, 0, 0, 1, 0, 1, 0, 0]),
   Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08]), be16(h), be16(w), Buffer.from([3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]),
 ]);
+// 带 EXIF 方向标记的 JPEG（大端 TIFF，IFD0 只有 Orientation 一项）
+function jpegExif(w, h, orient) {
+  const tiff = Buffer.concat([Buffer.from('MM'), be16(42), be32(8), be16(1), be16(0x0112), be16(3), be32(1), be16(orient), be16(0), be32(0)]);
+  const app1 = Buffer.concat([Buffer.from('Exif\0\0'), tiff]);
+  const j = jpeg(w, h);
+  return Buffer.concat([j.subarray(0, 2), Buffer.from([0xff, 0xe1]), be16(app1.length + 2), app1, j.subarray(2)]);
+}
 const webp = (w, h) => {
   const wb = Buffer.alloc(3); wb.writeUIntLE(w - 1, 0, 3);
   const hb = Buffer.alloc(3); hb.writeUIntLE(h - 1, 0, 3);
@@ -45,9 +52,9 @@ function mkv(w, h, seconds) {
 
 /* ───────── 服务进程 ───────── */
 let portSeed = 18700 + Math.floor(Math.random() * 500);
-async function startServer(env = {}) {
+async function startServer(env = {}, reuseData) {
   const port = portSeed++;
-  const data = fs.mkdtempSync(path.join(os.tmpdir(), 'mg-data-'));
+  const data = reuseData || fs.mkdtempSync(path.join(os.tmpdir(), 'mg-data-'));
   const proc = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
     env: { ...process.env, PORT: String(port), GALLERY_DATA: data, ...env }, stdio: 'ignore',
   });
@@ -63,8 +70,11 @@ async function startServer(env = {}) {
     return { status: r.status, json, text, headers: r.headers };
   };
   const post = (url, body) => call(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const stop = () => { proc.kill(); fs.rmSync(data, { recursive: true, force: true }); };
-  return { base, call, post, stop, port };
+  const stop = (keepData) => new Promise((resolve) => {
+    proc.once('exit', () => { if (!keepData) fs.rmSync(data, { recursive: true, force: true }); resolve(); });
+    proc.kill();
+  });
+  return { base, call, post, stop, port, data };
 }
 
 async function waitScan(srv, kind, rootId) {
@@ -81,6 +91,7 @@ const media = fs.mkdtempSync(path.join(os.tmpdir(), 'mg-media-'));
 const w = (rel, buf) => { const f = path.join(media, rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, buf); };
 w('a/wall_1.png', png(1920, 1080));
 w('a/photo.jpg', jpeg(4000, 3000));
+w('a/phone.jpg', jpegExif(4032, 3024, 6)); // 手机竖拍：像素横向存储，EXIF 标记旋转 90°
 w('a/b/anim.gif', gif(640, 360));
 w('a/b/壁纸.webp', webp(2560, 1440));
 w('9lives.png', png(7680, 4320));
@@ -97,7 +108,7 @@ test.before(async () => {
   const r = await srv.post('/api/roots', { path: media, name: '样本' });
   rootId = r.json.id;
 });
-test.after(() => { srv.stop(); fs.rmSync(media, { recursive: true, force: true }); });
+test.after(async () => { await srv.stop(); fs.rmSync(media, { recursive: true, force: true }); });
 
 test('添加媒体源：校验路径、拒绝重复', async () => {
   assert.equal((await srv.post('/api/roots', { path: path.join(media, 'nope') })).status, 400);
@@ -114,7 +125,7 @@ test('图片：未手动扫描时没有任何内容；扫描后解析各格式�
   r = await srv.call(`/api/items?kind=image&root=${rootId}&rec=1`);
   const by = Object.fromEntries(r.json.items.map((i) => [i.n, `${i.w}x${i.h}`]));
   assert.deepEqual(by, {
-    'wall_1.png': '1920x1080', 'photo.jpg': '4000x3000', 'anim.gif': '640x360', '壁纸.webp': '2560x1440',
+    'wall_1.png': '1920x1080', 'photo.jpg': '4000x3000', 'phone.jpg': '3024x4032', 'anim.gif': '640x360', '壁纸.webp': '2560x1440',
     '9lives.png': '7680x4320', 'tiny.png': '100x100',
   });
 });
@@ -131,9 +142,30 @@ test('视频：MP4（含旋转）与 MKV 的分辨率、时长', async () => {
   assert.equal(Math.round(by['old.mkv'].t), 7);
 });
 
+test('视频页快速刷新：只看目录修改时间，新增 / 删除能发现，原地覆盖不会（完整扫描才会）', async () => {
+  const items = async () => (await srv.call(`/api/items?kind=video&root=${rootId}&rec=1`)).json.items;
+  const scan = async (body) => { await srv.post('/api/scan', { kind: 'video', action: 'start', ...body }); return waitScan(srv, 'video', rootId); };
+  w('movies/deep/new.mp4', mp4(3840, 2160, 120)); // 深层新目录：父目录 movies 的修改时间会变
+  await scan({ quick: true });
+  let list = await items();
+  assert.equal(list.find((i) => i.n === 'new.mp4').w, 3840);
+  fs.rmSync(path.join(media, 'movies/deep/new.mp4'));
+  await scan({ quick: true });
+  list = await items();
+  assert.ok(!list.some((i) => i.n === 'new.mp4'), '删除能被发现');
+  fs.writeFileSync(path.join(media, 'movies/m1.mp4'), mp4(1280, 720, 90)); // 原地覆盖，目录修改时间不变
+  await scan({ quick: true });
+  assert.equal((await items()).find((i) => i.n === 'm1.mp4').w, 1920, '快速刷新不会发现原地覆盖');
+  await scan({});
+  assert.equal((await items()).find((i) => i.n === 'm1.mp4').w, 1280, '完整扫描会发现');
+  fs.writeFileSync(path.join(media, 'movies/m1.mp4'), mp4(1920, 1080, 90));
+  await scan({});
+});
+
 test('分辨率分类、名称分组（含中文拼音）、类型分类', async () => {
   const r = await srv.call(`/api/items?kind=image&root=${rootId}&rec=1&group=res`);
   assert.deepEqual(r.json.groups.map((g) => g.g), ['8k', '4k', '2k', '1080', 'sd']);
+  assert.equal(r.json.groups.find((x) => x.g === '4k').count, 2);
   assert.deepEqual(r.json.facets.types.map((t) => t.e).sort(), ['gif', 'jpg', 'png', 'webp']);
   const n = await srv.call(`/api/items?kind=image&root=${rootId}&rec=1&group=name`);
   const g = Object.fromEntries(n.json.items.map((i) => [i.n, i.g]));
@@ -146,7 +178,7 @@ test('分辨率分类、名称分组（含中文拼音）、类型分类', async
 test('筛选：类型 / 分辨率 / 搜索 / 排序', async () => {
   const q = (s) => srv.call(`/api/items?kind=image&root=${rootId}&rec=1&${s}`).then((r) => r.json);
   assert.equal((await q('types=png')).total, 3);
-  assert.equal((await q('res=4k,8k')).total, 2);
+  assert.equal((await q('res=4k,8k')).total, 3);
   assert.equal((await q('q=壁纸')).total, 1);
   assert.equal((await q('q=b%2F')).total, 2, '搜索匹配目录路径');
   assert.equal((await q('sort=size&order=desc')).items[0].n.length > 0, true);
@@ -157,12 +189,12 @@ test('筛选：类型 / 分辨率 / 搜索 / 排序', async () => {
 test('目录层级：子文件夹、非递归 / 递归', async () => {
   const top = await srv.call(`/api/items?kind=image&root=${rootId}`).then((r) => r.json);
   assert.deepEqual(top.items.map((i) => i.n).sort(), ['9lives.png', 'tiny.png']);
-  assert.deepEqual(top.folders.map((f) => [f.name, f.total]), [['a', 4]]);
+  assert.deepEqual(top.folders.map((f) => [f.name, f.total]), [['a', 5]]);
   const a = await srv.call(`/api/items?kind=image&root=${rootId}&dir=a`).then((r) => r.json);
-  assert.equal(a.items.length, 2);
+  assert.equal(a.items.length, 3);
   assert.deepEqual(a.folders.map((f) => f.dir), ['a/b']);
   const rec = await srv.call(`/api/items?kind=image&root=${rootId}&dir=a&rec=1`).then((r) => r.json);
-  assert.equal(rec.total, 4);
+  assert.equal(rec.total, 5);
   const tree = await srv.call(`/api/tree?kind=image&root=${rootId}&dir=a`).then((r) => r.json);
   assert.deepEqual(tree.children.map((c) => c.dir), ['a/b']);
 });
@@ -173,13 +205,13 @@ test('只扫描当前文件夹：新增文件只影响该文件夹，其它保�
   await srv.post('/api/scan', { root: rootId, dir: 'a', kind: 'image', action: 'start' });
   await waitScan(srv, 'image', rootId);
   const r = await srv.call(`/api/items?kind=image&root=${rootId}&rec=1`).then((x) => x.json);
-  assert.equal(r.total, 7);
+  assert.equal(r.total, 8);
   assert.ok(r.items.some((i) => i.n === 'new.png'));
   assert.ok(!r.items.some((i) => i.n === 'tiny2.png'));
   await srv.post('/api/scan', { root: rootId, dir: 'does/not/exist', kind: 'image', action: 'start' });
   const st = await srv.call('/api/scan?kind=image').then((x) => x.json[rootId]);
   assert.equal(st.state, 'error');
-  assert.equal(st.count, 7, '出错时保留原索引');
+  assert.equal(st.count, 8, '出错时保留原索引');
 });
 
 test('收藏夹：文件和文件夹，删除媒体源时一并清理', async () => {
@@ -259,6 +291,28 @@ test('访问口令：未带口令 401，?token= 换取 Cookie 后放行', async 
     assert.equal((await fetch(`${base}/api/info`, { headers: { cookie } })).status, 200);
     assert.equal((await fetch(`${base}/?token=wrong`, { redirect: 'manual' })).status, 401);
   } finally {
-    s.stop();
+    await s.stop();
+  }
+});
+
+test('播放时回报的分辨率会写入索引，服务重启后仍在', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mg-media2-'));
+  fs.writeFileSync(path.join(dir, 'clip.avi'), Buffer.from('RIFF....AVI junk'));
+  let s = await startServer();
+  try {
+    const id = (await s.post('/api/roots', { path: dir })).json.id;
+    await s.post('/api/scan', { kind: 'video', action: 'start' });
+    await waitScan(s, 'video', id);
+    let it = (await s.call(`/api/items?kind=video&root=${id}`)).json.items[0];
+    assert.equal(it.w, 0, 'AVI 头部解析不了，分辨率未知');
+    await s.post('/api/report-dim', { r: id, p: 'clip.avi', w: 1280, h: 720, t: 12 });
+    await new Promise((r) => setTimeout(r, 2600)); // 写盘有 2 秒防抖
+    await s.stop(true);
+    s = await startServer({}, s.data);
+    it = (await s.call(`/api/items?kind=video&root=${id}`)).json.items[0];
+    assert.equal(`${it.w}x${it.h}`, '1280x720');
+  } finally {
+    await s.stop();
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });

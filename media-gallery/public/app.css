@@ -214,13 +214,13 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .gh span { color: var(--faint); font-size: 12.5px; }
 .gh::after { content: ""; flex: 1; height: 1px; background: var(--line); align-self: center; }
 
-.card { position: relative; border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); overflow: hidden; cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s; content-visibility: auto; contain-intrinsic-size: auto 240px; }
+.card { position: relative; border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); overflow: hidden; cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s; }
 .card:hover { transform: translateY(-3px); border-color: var(--line-2); box-shadow: var(--shadow); }
 .thumb { position: relative; aspect-ratio: 16 / 10; background: var(--bg-2); overflow: hidden; }
 .thumb img, .thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s; }
 .fit-contain .thumb img, .fit-contain .thumb video { object-fit: contain; }
 .card:hover .thumb img { transform: scale(1.04); }
-.thumb::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .05) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 1.6s infinite; }
+.thumb:not(.ok)::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .05) 50%, transparent 70%); background-size: 200% 100%; animation: shimmer 1.6s infinite; }
 @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
 .thumb .ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); }
 .thumb .ph .ic { width: 34px; height: 34px; stroke-width: 1.3; }
@@ -245,7 +245,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .fav-btn.on { color: var(--star); }
 .fav-btn.on .ic { fill: currentColor; }
 .fav-btn:hover { background: rgba(8, 10, 16, .8); }
-.meta { padding: 10px 12px 11px; }
+.meta { height: 58px; padding: 10px 12px 0; }
 .name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub { margin-top: 1px; color: var(--faint); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
@@ -264,7 +264,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .grid.list { display: block; padding-top: 0; }
 .row, .rhead { display: grid; grid-template-columns: 64px minmax(160px, 1fr) 70px 160px 90px 150px 70px 34px; align-items: center; gap: 12px; padding: 7px 12px; }
 .rhead { position: sticky; top: 0; color: var(--faint); font-size: 12px; letter-spacing: .5px; border-bottom: 1px solid var(--line); }
-.row { border-radius: 10px; cursor: pointer; border: 1px solid transparent; content-visibility: auto; contain-intrinsic-size: auto 52px; }
+.row { height: 54px; margin-bottom: 2px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; }
 .row:hover { background: var(--panel); border-color: var(--line); }
 .row .rthumb { position: relative; width: 64px; height: 40px; border-radius: 7px; overflow: hidden; background: var(--bg-2); }
 .row .rthumb img, .row .rthumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -277,7 +277,10 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .row:hover .fav-btn, .row .fav-btn.on { opacity: 1; transform: none; }
 .row .fav-btn.on { color: var(--star); }
 .list .gh { padding-left: 12px; padding-right: 12px; }
-.sentinel { height: 1px; }
+.vwrap { grid-column: 1 / -1; position: relative; }
+.vin { position: absolute; inset: 0; }
+.vrow { display: grid; align-items: start; }
+.vin > .gh { padding: 14px 2px 0; }
 .folders { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; margin-bottom: 8px; }
 .grid.list .folders { margin: 6px 0 14px; }
 

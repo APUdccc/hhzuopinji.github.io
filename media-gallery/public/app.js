@@ -9,7 +9,7 @@ const icon = (n, cls = '') => `<svg class="ic ${cls}"><use href="#i-${n}"/></svg
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
-const fileUrl = (it) => `/file/${it.r}/${encPath(it.p)}`;
+const fileUrl = (it) => `/file/${it.r}/${encPath(it.p)}?v=${it.m}`;
 const thumbUrl = (it, w = 480) => `/thumb/${it.r}/${encPath(it.p)}?w=${w}&v=${it.m}`;
 const transcodeUrl = (it) => `/transcode/${it.r}/${encPath(it.p)}`;
 
@@ -69,7 +69,7 @@ const S = {
   expanded: new Set(P.expanded),
   q: '', types: new Set(), res: new Set(), favOnly: false, resume: false,
   items: [], total: 0, folders: [], facets: { types: [], res: [] }, groupCounts: {},
-  loading: false, req: 0, lastG: null, treeCache: new Map(), counts: new Map(),
+  loading: false, req: 0, treeCache: new Map(), counts: new Map(), thumbFail: new Set(),
 };
 const PAGE = 240;
 const caps = () => (S.info && S.info.caps) || {};
@@ -118,7 +118,8 @@ function autoVideoScan() {
     return r.exists && s.state !== 'running' && (s.state === 'none' || Date.now() - s.updatedAt > 5 * 60 * 1000);
   });
   if (!stale.length) return;
-  Promise.all(stale.map((r) => post('/api/scan', { root: r.id, kind: 'video', action: 'start' }))).then(() => afterScanKick());
+  // 自动刷新用快速模式：只检查目录修改时间，没变化的目录不再逐个读文件
+  Promise.all(stale.map((r) => post('/api/scan', { root: r.id, kind: 'video', action: 'start', quick: r.scans.video.state !== 'none' }))).then(() => afterScanKick());
 }
 
 /* ═════════════ 扫描轮询 ═════════════ */
@@ -216,7 +217,7 @@ async function loadItems(reset, opts = {}) {
   } else {
     const from = S.items.length;
     S.items.push(...j.items);
-    appendItems(from);
+    vgRefresh();
   }
   if (V.open) updateViewerNav();
 }
@@ -368,8 +369,11 @@ function resBadge(it) {
   return `<span class="badge b-res${cls}">${RES_LABEL[it.b]}</span>`;
 }
 
+const itemKey = (it) => `${it.r}|${it.p}`;
+const needFrame = (it) => it.k === 'video' && (!caps().ffmpeg || S.thumbFail.has(itemKey(it)));
+
 function thumbInner(it) {
-  const useThumb = caps().ffmpeg;
+  const useThumb = caps().ffmpeg && !S.thumbFail.has(itemKey(it));
   if (it.k === 'image') return `<img loading="lazy" decoding="async" alt="" src="${useThumb ? thumbUrl(it) : fileUrl(it)}" data-orig="${useThumb ? 1 : 0}">`;
   return useThumb
     ? `<img loading="lazy" decoding="async" alt="" src="${thumbUrl(it)}" data-orig="0">`
@@ -380,7 +384,7 @@ function cardHTML(it, i) {
   const v = it.k === 'video';
   const sub = [it.w ? `${it.w}×${it.h}` : '', fmtSize(it.s)].filter(Boolean).join(' · ');
   return `<div class="card" data-i="${i}" data-k="${it.k}" title="${esc(it.p)}">
-    <div class="thumb"${v && !caps().ffmpeg ? ' data-v="1"' : ''}>${thumbInner(it)}
+    <div class="thumb"${needFrame(it) ? ' data-v="1"' : ''}>${thumbInner(it)}
       <span class="badge b-ext">${esc(it.e)}</span>${resBadge(it)}${v && it.t ? `<span class="badge b-dur">${fmtDur(it.t)}</span>` : ''}
       ${v ? `<div class="play-ov"><span>${icon('play')}</span></div>` : ''}
       ${v && it.rp && it.t ? `<i class="rbar" style="width:${Math.min(100, Math.round((it.rp / it.t) * 100))}%"></i>` : ''}
@@ -393,7 +397,7 @@ function cardHTML(it, i) {
 function rowHTML(it, i) {
   const v = it.k === 'video';
   return `<div class="row" data-i="${i}" data-k="${it.k}">
-    <div class="rthumb thumb"${v && !caps().ffmpeg ? ' data-v="1"' : ''}>${thumbInner(it)}</div>
+    <div class="rthumb thumb"${needFrame(it) ? ' data-v="1"' : ''}>${thumbInner(it)}</div>
     <div class="rname"><b>${esc(it.n)}</b><small>${esc(it.d || '（根目录）')}</small></div>
     <div class="c t"><span class="tag">${esc(it.e)}</span></div>
     <div class="c r">${it.w ? `${it.w}×${it.h}` : '—'}${it.b !== 'unk' ? ` <span class="tag">${RES_LABEL[it.b]}</span>` : ''}</div>
@@ -416,29 +420,118 @@ function renderAll(keepScroll) {
   const main = $('#main'), grid = $('#grid');
   const top = main.scrollTop;
   grid.className = `grid${P.view === 'list' ? ' list' : ''}${P.fit === 'contain' ? ' fit-contain' : ''}`;
-  S.lastG = null;
-  vio.disconnect();
+  releaseFrames();
   let html = '';
   if (S.folders.length) html += `<div class="folders">${S.folders.map(folderCardHTML).join('')}</div>`;
   if (!S.items.length && !S.folders.length) html += emptyHTML();
   else if (P.view === 'list' && S.items.length) html += `<div class="rhead"><span></span><span>名称</span><span class="t">类型</span><span>分辨率</span><span class="s">大小</span><span class="m">修改时间</span><span class="d">时长</span><span></span></div>`;
+  if (S.items.length) html += '<div class="vwrap" id="vwrap"><div class="vin" id="vin"></div></div>';
   grid.innerHTML = html;
   renderBanner();
-  appendItems(0);
+  vgRefresh();
   main.scrollTop = keepScroll ? top : 0;
+  vgRender(true);
 }
 
-function appendItems(from) {
-  const grid = $('#grid');
-  let html = '';
-  for (let i = from; i < S.items.length; i++) {
-    const it = S.items[i];
-    if (P.group !== 'none' && it.g !== S.lastG) { S.lastG = it.g; html += groupHead(it.g); }
-    html += P.view === 'list' ? rowHTML(it, i) : cardHTML(it, i);
+/*
+ * 虚拟网格：只渲染可视区域上下各一屏，其余用总高度占位。
+ * 行模型 = 分组标题行 + 每行若干张卡片（列表视图每行一项），所有行高度固定，
+ * 所以几万项时滚动和追加的开销都和总数无关。
+ */
+const VG = { rows: [], total: 0, cols: 1, gap: 18, start: -1, end: -1, view: '', group: '', first: null };
+const GH_H = 46, ROW_H = 56, META_H = 58;
+
+function vgLayout() {
+  const wrap = $('#vwrap');
+  const width = wrap ? wrap.clientWidth : 0;
+  const gap = parseFloat(getComputedStyle($('#grid')).columnGap) || 18;
+  if (P.view === 'list') return { cols: 1, rowH: ROW_H, gap };
+  const cols = Math.max(1, Math.floor((width + gap) / (P.size + gap)));
+  const cardW = (width - gap * (cols - 1)) / cols;
+  return { cols, rowH: Math.round((cardW * 10) / 16 + META_H + 2 + gap), gap };
+}
+
+function vgRefresh() {
+  const wrap = $('#vwrap');
+  if (!wrap) return;
+  const L = vgLayout();
+  const rows = [];
+  const grouped = P.group !== 'none';
+  let top = 0, i = 0;
+  while (i < S.items.length) {
+    const g = S.items[i].g;
+    if (grouped) { rows.push({ h: true, g, top, ht: GH_H }); top += GH_H; }
+    let j = i;
+    while (j < S.items.length && (!grouped || S.items[j].g === g)) j++;
+    for (let k = i; k < j; k += L.cols) { rows.push({ from: k, to: Math.min(j, k + L.cols), top, ht: L.rowH }); top += L.rowH; }
+    i = j;
   }
-  grid.insertAdjacentHTML('beforeend', html);
-  $$('.thumb[data-v]:not([data-o])', grid).forEach((t) => { t.dataset.o = 1; vio.observe(t); });
-  sentinelCheck();
+  // 只是在末尾追加了新数据、布局不变时，已渲染的行可以保留
+  const same = VG.cols === L.cols && VG.rows.length && rows.length >= VG.rows.length && VG.rows[0].ht === rows[0].ht && VG.view === P.view && VG.group === P.group && VG.first === S.items[0];
+  VG.rows = rows; VG.cols = L.cols; VG.total = top; VG.gap = L.gap; VG.view = P.view; VG.group = P.group; VG.first = S.items[0];
+  wrap.style.height = `${top}px`;
+  vgRender(!same);
+}
+
+function vgRowHTML(r) {
+  const row = VG.rows[r];
+  const pos = `position:absolute;left:0;right:0;top:${row.top}px;height:${row.ht}px`;
+  if (row.h) return groupHead(row.g).replace('class="gh"', `class="gh" data-row="${r}" style="${pos}"`);
+  if (P.view === 'list') return `<div data-row="${r}" style="${pos}">${rowHTML(S.items[row.from], row.from)}</div>`;
+  let cells = '';
+  for (let k = row.from; k < row.to; k++) cells += cardHTML(S.items[k], k);
+  return `<div class="vrow" data-row="${r}" style="${pos};grid-template-columns:repeat(${VG.cols},minmax(0,1fr));gap:${VG.gap}px">${cells}</div>`;
+}
+
+// 只增删进出视野的行，留在视野里的行（以及其中已加载的图片）原样保留
+function vgRender(force) {
+  const wrap = $('#vwrap'), vin = $('#vin');
+  if (!wrap || !vin) return;
+  const main = $('#main');
+  const viewTop = main.scrollTop - wrap.offsetTop;
+  const vh = main.clientHeight;
+  const rows = VG.rows;
+  let lo = 0, hi = rows.length;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (rows[m].top + rows[m].ht < viewTop - vh) lo = m + 1; else hi = m; }
+  const start = lo;
+  let end = start;
+  while (end < rows.length && rows[end].top < viewTop + vh * 2) end++;
+  if (!force && start === VG.start && end === VG.end) { maybeLoadMore(end); return; }
+  VG.start = start; VG.end = end;
+  if (force) { releaseFrames(); vin.innerHTML = ''; }
+  const have = new Set();
+  for (const el of [...vin.children]) {
+    const r = +el.dataset.row;
+    if (r < start || r >= end) {
+      for (const v of el.querySelectorAll('video')) { vio.unobserve(v.parentElement); v.removeAttribute('src'); v.load(); }
+      if (hoverCard && el.contains(hoverCard)) endHover();
+      el.remove();
+    } else have.add(r);
+  }
+  let html = '';
+  for (let r = start; r < end; r++) if (!have.has(r)) html += vgRowHTML(r);
+  if (html) {
+    vin.insertAdjacentHTML('beforeend', html);
+    $$('.thumb[data-v]:not([data-o])', vin).forEach((t) => { t.dataset.o = 1; vio.observe(t); });
+  }
+  maybeLoadMore(end);
+}
+
+function maybeLoadMore(end) {
+  if (S.items.length < S.total && end >= VG.rows.length - 3) loadItems(false);
+}
+
+// 行被回收前释放浏览器抽帧用的 <video>，避免它们在后台继续下载
+function releaseFrames() {
+  vio.disconnect();
+  for (const v of $$('#grid video.tv')) { v.removeAttribute('src'); v.load(); }
+  endHover();
+}
+
+let vgRaf = 0;
+function vgSchedule() {
+  if (vgRaf) return;
+  vgRaf = requestAnimationFrame(() => { vgRaf = 0; vgRender(false); });
 }
 
 /* 没有 ffmpeg 时：视频缩略图用浏览器抽帧（只给可见区域加载，离开就释放） */
@@ -467,6 +560,11 @@ function reportDim(it, v) {
   post('/api/report-dim', { r: it.r, p: it.p, w: it.w, h: it.h, t: v.duration || 0 }).catch(() => {});
 }
 
+document.addEventListener('load', (e) => {
+  const img = e.target;
+  if (img instanceof HTMLImageElement && img.parentElement && img.parentElement.classList.contains('thumb')) img.parentElement.classList.add('ok');
+}, true);
+
 /* 缩略图失败时回退 */
 document.addEventListener('error', (e) => {
   const img = e.target;
@@ -474,6 +572,7 @@ document.addEventListener('error', (e) => {
   const host = img.closest('[data-i]');
   const it = host && S.items[+host.dataset.i];
   if (!it) return;
+  S.thumbFail.add(itemKey(it));
   if (it.k === 'image' && img.dataset.orig === '1') { img.dataset.orig = '0'; img.src = fileUrl(it); return; }
   if (it.k === 'video') {
     const th = img.closest('.thumb');
@@ -481,13 +580,6 @@ document.addEventListener('error', (e) => {
     if (th && !th.dataset.o) { th.dataset.v = 1; th.dataset.o = 1; th.insertAdjacentHTML('afterbegin', `<div class="ph">${icon('video')}</div>`); vio.observe(th); }
   }
 }, true);
-
-/* 无限滚动 */
-const sentinelIO = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) loadItems(false); }, { root: null, rootMargin: '900px' });
-function sentinelCheck() {
-  sentinelIO.disconnect();
-  sentinelIO.observe($('#sentinel'));
-}
 
 /* 悬停预览 */
 let hoverCard = null, hoverTimer = 0;
@@ -729,12 +821,14 @@ function bindUI() {
     const b = e.target.closest('button'); if (!b) return;
     P.view = b.dataset.view; savePrefs(); applyPrefsToUI(); renderAll(true);
   });
-  $('#size').oninput = (e) => { P.size = +e.target.value; document.documentElement.style.setProperty('--card-w', `${P.size}px`); };
+  $('#size').oninput = (e) => { P.size = +e.target.value; document.documentElement.style.setProperty('--card-w', `${P.size}px`); vgRefresh(); };
   $('#size').onchange = savePrefs;
   $('#fit').onclick = () => { P.fit = P.fit === 'cover' ? 'contain' : 'cover'; $('#grid').classList.toggle('fit-contain', P.fit === 'contain'); savePrefs(); toast(P.fit === 'cover' ? '缩略图：裁切填充' : '缩略图：完整显示'); };
   $('#theme').onclick = () => { P.theme = P.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = P.theme; setThemeIcon(); savePrefs(); };
 
-  $('#main').addEventListener('scroll', () => $('#filters').classList.toggle('stuck', $('#main').scrollTop > 60), { passive: true });
+  $('#main').addEventListener('scroll', () => { $('#filters').classList.toggle('stuck', $('#main').scrollTop > 60); vgSchedule(); }, { passive: true });
+  let lastW = 0;
+  new ResizeObserver(() => { const w = $('#main').clientWidth; if (w !== lastW) { lastW = w; vgRefresh(); } else vgSchedule(); }).observe($('#main'));
 
   // 面包屑 / 操作
   $('#crumbs').addEventListener('click', (e) => {
@@ -857,21 +951,56 @@ function bindViewer() {
     e.preventDefault();
     zoomAt(e.deltaY < 0 ? 1.18 : 1 / 1.18, e.clientX, e.clientY);
   }, { passive: false });
-  let drag = null;
+  // 鼠标：拖动平移。触摸：单指拖动平移 / 未放大时左右滑动切换，双指捏合缩放
+  const pts = new Map();
+  let drag = null, pinch = null;
+  const fitted = () => Math.abs(V.s - V.fit) < 0.01;
+  const two = () => { const [a, b] = [...pts.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; };
   stage.addEventListener('pointerdown', (e) => {
-    if (!V.img || e.button !== 0) return;
-    drag = { x: e.clientX, y: e.clientY, ox: V.x, oy: V.y, moved: false };
+    if (!V.img || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     stage.setPointerCapture(e.pointerId);
-    stage.classList.add('drag');
+    if (pts.size === 1) {
+      drag = { x: e.clientX, y: e.clientY, ox: V.x, oy: V.y, touch: e.pointerType !== 'mouse', swipe: e.pointerType !== 'mouse' && fitted() };
+      stage.classList.add('drag');
+    } else if (pts.size === 2) {
+      const t = two();
+      pinch = { d0: t.d, s0: V.s, mx: t.mx, my: t.my };
+      drag = null;
+    }
   });
   stage.addEventListener('pointermove', (e) => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pts.size >= 2) {
+      const t = two();
+      V.x += t.mx - pinch.mx; V.y += t.my - pinch.my;
+      pinch.mx = t.mx; pinch.my = t.my;
+      zoomAt((pinch.s0 * t.d) / pinch.d0 / V.s, t.mx, t.my);
+      return;
+    }
     if (!drag) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
-    V.x = drag.ox + dx; V.y = drag.oy + dy;
+    if (drag.swipe) V.x = drag.ox + dx; else { V.x = drag.ox + dx; V.y = drag.oy + dy; }
     applyImg();
   });
-  const endDrag = () => { stage.classList.remove('drag'); drag = null; };
+  const endDrag = (e) => {
+    pts.delete(e.pointerId);
+    if (pinch) {
+      if (pts.size < 2) { pinch = null; if (V.s < V.fit) fitImg(); }
+      return;
+    }
+    if (drag && drag.swipe) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      const snapBack = () => { V.x = 0; V.y = 0; applyImg(); };
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.2 && e.type === 'pointerup') {
+        const before = V.i;
+        stepViewer(dx < 0 ? 1 : -1).then(() => { if (V.i === before) snapBack(); }); // 已经是第一张 / 最后一张
+      } else snapBack();
+    }
+    stage.classList.remove('drag');
+    drag = null;
+  };
   stage.addEventListener('pointerup', endDrag);
   stage.addEventListener('pointercancel', endDrag);
   stage.addEventListener('dblclick', (e) => {
