@@ -898,15 +898,17 @@ async function getThumb(root, rel, w, direct) {
 
 /* 扫描完成后在后台低优先级预生成缩略图（单线程，不抢交互请求） */
 const pregenPool = makePool(1);
-let pregenToken = 0;
+const pregenTokens = new Map(); // `${rootId}|${kind}` -> 代号，再次扫描同一个库时只打断它自己的预生成
 async function pregenThumbs(rootId, kind) {
   const mode = config.settings.pregenThumbs;
   if (!caps.ffmpeg || mode === 'off' || (mode === 'video' && kind !== 'video')) return;
   const root = findRoot(rootId);
   if (!root) return;
-  const my = ++pregenToken;
+  const tk = `${rootId}|${kind}`;
+  const my = (pregenTokens.get(tk) || 0) + 1;
+  pregenTokens.set(tk, my);
   for (const it of getIndex(rootId, kind).items.slice()) {
-    if (my !== pregenToken || !findRoot(rootId)) return;
+    if (my !== pregenTokens.get(tk) || !findRoot(rootId)) return;
     await pregenPool.add(() => getThumb(root, it.p, 480, true).catch(() => {}));
   }
 }
@@ -1161,7 +1163,7 @@ async function api(req, res, u) {
 
   if (route === 'thumbs') {
     if (method === 'POST' && body.action === 'clear') {
-      pregenToken++;
+      for (const k of pregenTokens.keys()) pregenTokens.set(k, pregenTokens.get(k) + 1); // 清缓存时中止所有预生成
       await fsp.rm(THUMB_DIR, { recursive: true, force: true });
     }
     return send(res, 200, await thumbStats());
