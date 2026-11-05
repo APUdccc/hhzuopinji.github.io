@@ -5,6 +5,9 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { Particles } from './particles.js';
+import { Environment } from './env.js';
 import {
     PROPELLANTS, CYCLES, PRESETS, perf, evaluate, ambient, machFromArea, thermo,
 } from './model.js';
@@ -32,6 +35,7 @@ const op = {
     heat: 0,             // 喷管温度 0..1
     overT: 0, hotT: 0,
     sepWarned: false,
+    frost: 0, flash: 0, shut: 0, steam: 0, kick: 0,
 };
 
 /* =========================================================
@@ -57,8 +61,27 @@ controls.enablePan = false;
 controls.rotateSpeed = 0.6;
 controls.zoomSpeed = 0.8;
 
+scene.fog = new THREE.Fog(0x172a44, 20, 200);
+
+/* 热浪扭曲：先把尾焰周围的“热区”渲染到低分辨率遮罩，再在后期按遮罩扰动画面 */
+const maskRT = new THREE.WebGLRenderTarget(Math.ceil(innerWidth / 2), Math.ceil(innerHeight / 2), { type: THREE.HalfFloatType });
+const shimmerPass = new ShaderPass({
+    uniforms: { tDiffuse: { value: null }, tMask: { value: null }, uTime: { value: 0 }, uAmt: { value: 0 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: /* glsl */`
+        uniform sampler2D tDiffuse, tMask; uniform float uTime, uAmt; varying vec2 vUv;
+        void main(){
+            float m = clamp(texture2D(tMask, vUv).r, 0.0, 1.0);
+            vec2 o = vec2(sin(vUv.y * 160.0 + uTime * 23.0) + sin(vUv.y * 63.0 - uTime * 14.0),
+                          cos(vUv.x * 120.0 - uTime * 19.0) + sin(vUv.x * 51.0 + uTime * 10.0)) * 0.5;
+            gl_FragColor = texture2D(tDiffuse, vUv + o * m * uAmt);
+        }`,
+});
+shimmerPass.uniforms.tMask.value = maskRT.texture;
+
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
+composer.addPass(shimmerPass);
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.75, 0.5, 0.78);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
@@ -70,7 +93,13 @@ const rim = new THREE.DirectionalLight(0x8fb8ff, 1.2);
 rim.position.set(-6, 3, -5);
 scene.add(key, rim, new THREE.AmbientLight(0x1a2333, 0.6));
 const plumeLight = new THREE.PointLight(0x88aaff, 0, 0, 1.6);
-scene.add(plumeLight);
+const pitLight = new THREE.PointLight(0xffb070, 0, 0, 1.8);
+scene.add(plumeLight, pitLight);
+
+const env = new Environment(scene);
+const smoke = new Particles(isSmall ? 380 : 700);
+const sparks = new Particles(isSmall ? 160 : 280, { additive: true });
+scene.add(smoke.mesh, sparks.mesh);
 
 /* ---------- 天空（随大气密度渐变到太空） ---------- */
 const sky = new THREE.Mesh(
@@ -84,8 +113,8 @@ const sky = new THREE.Mesh(
             uniform float uAtm; varying vec3 vDir;
             void main(){
                 float h = vDir.y;
-                vec3 zen = mix(vec3(0.004, 0.006, 0.012), vec3(0.02, 0.05, 0.11), uAtm);
-                vec3 hor = mix(vec3(0.008, 0.01, 0.02), vec3(0.09, 0.16, 0.27), uAtm);
+                vec3 zen = mix(vec3(0.004, 0.006, 0.012), vec3(0.012, 0.025, 0.06), uAtm);
+                vec3 hor = mix(vec3(0.008, 0.01, 0.02), vec3(0.07, 0.085, 0.13), uAtm);
                 vec3 gnd = mix(vec3(0.005, 0.006, 0.01), vec3(0.03, 0.035, 0.045), uAtm);
                 vec3 c = h > 0.0 ? mix(hor, zen, pow(h, 0.55)) : mix(hor, gnd, pow(-h, 0.4));
                 gl_FragColor = vec4(c, 1.0);
@@ -151,6 +180,27 @@ const mats = {
     cut: new THREE.MeshStandardMaterial({ color: 0xc98a5a, metalness: 0.6, roughness: 0.45, side: THREE.DoubleSide }),
 };
 const clippable = ['regen', 'ext', 'inner', 'steel', 'dark', 'gold', 'pipe', 'accent', 'reactor'];
+const GOLD = new THREE.Color(0xc9a25a), PIPE = new THREE.Color(0xd2d7de), FROST = new THREE.Color(0xc9d3de);
+
+/* 喷管发热：按黑体辐射色阶着色（暗红 → 橙 → 黄白），权重来自沿母线的发光贴图 */
+function heatify(mat) {
+    mat.userData.uHeat = { value: 0 };
+    mat.emissive.set(0xffffff);
+    mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uHeat = mat.userData.uHeat;
+        sh.fragmentShader = 'uniform float uHeat;\n' + sh.fragmentShader.replace('#include <emissivemap_fragment>', `
+            #ifdef USE_EMISSIVEMAP
+                float hw = texture2D(emissiveMap, vEmissiveMapUv).r;
+                float T = clamp(hw * uHeat, 0.0, 1.25);
+                vec3 bb = mix(vec3(0.3, 0.01, 0.0), vec3(1.0, 0.18, 0.02), smoothstep(0.0, 0.45, T));
+                bb = mix(bb, vec3(1.0, 0.55, 0.18), smoothstep(0.45, 0.85, T));
+                bb = mix(bb, vec3(1.0, 0.88, 0.66), smoothstep(0.85, 1.2, T));
+                totalEmissiveRadiance = bb * pow(T, 2.4) * 6.0;
+            #endif`);
+    };
+    mat.customProgramCacheKey = () => 'heat';
+    return mat;
+}
 mats.cut.polygonOffset = true; mats.cut.polygonOffsetFactor = -1;
 
 /* 由型面权重生成沿母线方向的发光贴图（与 LatheGeometry 的 v 坐标对齐） */
@@ -163,9 +213,7 @@ function profileTexture(weights) {
         g.fillStyle = `rgb(${s},${s},${s})`;
         g.fillRect(0, n - 1 - j, 2, 1);   // flipY：v=0 位于画布底部
     }
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
+    return new THREE.CanvasTexture(c);
 }
 
 /* LatheGeometry 需要自下而上的点序才能得到朝外的法线 */
@@ -221,7 +269,7 @@ function buildEngine(d) {
     const regenOuter = pts.slice(0, split + 1).map((p, i) => ({ y: p.y, r: p.r + thick(p, i) }));
     regenOuter.unshift({ y: yInj + rt * 0.02, r: rc * 0.94 + wallC });
     const regenW = regenOuter.map((p) => 0.05 + 0.45 * Math.exp(-Math.abs(p.y - yt) / (rt * 2.2)));
-    const regenMesh = new THREE.Mesh(lathe([...regenOuter].reverse()), mats.regen.clone());
+    const regenMesh = new THREE.Mesh(lathe([...regenOuter].reverse()), heatify(mats.regen.clone()));
     regenMesh.material.userData.own = true;
     regenMesh.material.emissiveMap = profileTexture([...regenW].reverse());
     regenMesh.material.bumpMap = stripes;
@@ -232,7 +280,7 @@ function buildEngine(d) {
     if (hasExt) {
         const ext = pts.slice(split).map((p) => ({ y: p.y, r: p.r + wallE }));
         const extW = ext.map((_, i) => Math.pow(1 - 0.8 * (i / (ext.length - 1)), 1.6));
-        extMesh = new THREE.Mesh(lathe([...ext].reverse()), mats.ext.clone());
+        extMesh = new THREE.Mesh(lathe([...ext].reverse()), heatify(mats.ext.clone()));
         extMesh.material.userData.own = true;
         extMesh.material.emissiveMap = profileTexture([...extW].reverse());
         hw.add(extMesh);
@@ -409,8 +457,14 @@ function buildEngine(d) {
 
     applyClipping();
 
-    geo = { yInj, yt, yExit, rt, re, rc, pts, extMesh, regenMesh, innerMesh, cutGroup, flow, height: -yExit + rc * 0.4 };
+    const vents = [];
+    for (const p of pumps) vents.push(new THREE.Vector3(-rc * 0.35, pumpY + pumpH * 0.95, p.side * pumpZ));
+    vents.push(new THREE.Vector3(-regenR * 0.5, regenY + rt * 0.5, regenR * 0.9));
+    vents.push(new THREE.Vector3(-rc * 0.2, manifoldY + rc * 0.2, rc * 1.15));
+
+    geo = { yInj, yt, yExit, rt, re, rc, pts, extMesh, regenMesh, innerMesh, cutGroup, flow, vents, pumpR, height: -yExit + rc * 0.4 };
     plume.group.position.y = yExit;
+    env.build({ H: -yExit, yExit, re, rc, plateY: rc * 0.29 });
 }
 
 /* ---------- 流场剖面 ---------- */
@@ -505,7 +559,7 @@ function applyClipping() {
 const PLUME_STYLE = {
     methalox: { core: [0.42, 0.55, 1.0], edge: [0.62, 0.36, 1.0], dia: [1.0, 0.82, 0.95], burn: [1.0, 0.42, 0.2], bright: 1.0, shock: 1.0 },
     hydrolox: { core: [0.5, 0.62, 1.0], edge: [0.4, 0.48, 1.0], dia: [1.0, 0.86, 0.78], burn: [0.6, 0.6, 1.0], bright: 0.42, shock: 1.6 },
-    kerolox: { core: [1.0, 0.7, 0.32], edge: [1.0, 0.42, 0.12], dia: [1.0, 0.92, 0.72], burn: [1.0, 0.38, 0.1], bright: 1.45, shock: 0.8 },
+    kerolox: { core: [1.0, 0.62, 0.26], edge: [1.0, 0.38, 0.1], dia: [1.0, 0.9, 0.7], burn: [1.0, 0.34, 0.08], bright: 1.05, shock: 0.8 },
     ntr: { core: [0.72, 0.82, 1.0], edge: [0.5, 0.6, 1.0], dia: [0.9, 0.92, 1.0], burn: [0.5, 0.6, 1.0], bright: 0.3, shock: 0.4 },
 };
 
@@ -540,9 +594,13 @@ const plumeVS = /* glsl */`
     }`;
 
 const plumeFS = /* glsl */`
-    uniform float uTime, uPower, uAtm, uDiam, uBright, uShock, uLayer, uK, uBurn, uSep;
-    uniform vec3 uCore, uEdge, uDia, uBurnCol;
+    uniform float uTime, uPower, uAtm, uDiam, uBright, uShock, uLayer, uK, uBurn, uSep, uFlash, uShut;
+    uniform vec3 uCore, uEdge, uDia, uBurnCol, uFlashCol;
     varying float vS; varying vec3 vN; varying vec3 vV; varying float vAng;
+    float hh(vec3 p){ p = fract(p * 0.3183 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+    float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+        return mix(mix(mix(hh(i),hh(i+vec3(1,0,0)),f.x),mix(hh(i+vec3(0,1,0)),hh(i+vec3(1,1,0)),f.x),f.y),
+                   mix(mix(hh(i+vec3(0,0,1)),hh(i+vec3(1,0,1)),f.x),mix(hh(i+vec3(0,1,1)),hh(i+vec3(1,1,1)),f.x),f.y),f.z); }
     void main(){
         if (uPower < 0.003) discard;
         float s = vS;
@@ -554,15 +612,23 @@ const plumeFS = /* glsl */`
         float dia = 0.0;
         for (int i = 1; i <= 7; i++) {
             float c = float(i) * uDiam;
-            dia += exp(-pow((s - c) / (uDiam * 0.13), 2.0)) * exp(-float(i) * 0.38);
+            dia += exp(-pow((s - c) / (uDiam * 0.085), 2.0)) * exp(-float(i) * 0.32);
         }
         dia *= uAtm * uShock * smoothstep(0.0, 0.25, abs(uK - 1.0) + 0.1) * pow(facing, 3.0);
         float exitGlow = exp(-s * 30.0) * 0.8;
         vec3 col = mix(uCore, uEdge, clamp(s * 1.3 + (1.0 - facing) * 0.6, 0.0, 1.0));
         float burn = uBurn * uAtm * smoothstep(0.08, 0.5, s) * (1.0 - facing) * (uLayer > 0.5 ? 1.0 : 0.0);
         col = mix(col, uBurnCol, burn);
+        col = mix(col, vec3(1.0, 0.42, 0.12), uShut * 0.85);
+        col = mix(col, uFlashCol, uFlash);
         float I = (fall * turb * body + exitGlow * body) * uBright * uPower;
         I *= uLayer > 0.5 ? 0.55 : 1.0;
+        if (uLayer > 0.5) {
+            // 外层湍流边缘：随流动被噪声侵蚀
+            float n = vn(vec3(cos(vAng) * 2.0 + 3.0, sin(vAng) * 2.0 + s * 16.0 - t * 8.0, t * 0.6));
+            I *= 0.35 + 1.3 * n * n;
+        }
+        I *= 1.0 + uFlash * 2.5 + uShut * 0.6 * sin(t * 40.0) * sin(t * 23.0);
         vec3 outc = col * I + uDia * dia * 1.8 * uPower;
         float a = clamp(I + dia, 0.0, 1.0);
         gl_FragColor = vec4(outc, a);
@@ -578,6 +644,7 @@ function makePlume(small = false) {
             uSep: { value: 0 }, uTime: { value: 0 }, uScale: { value: layer ? 1.0 : 0.6 },
             uPower: { value: 0 }, uBright: { value: 1 }, uShock: { value: 1 }, uLayer: { value: layer }, uBurn: { value: 0 },
             uCore: { value: new THREE.Color() }, uEdge: { value: new THREE.Color() }, uDia: { value: new THREE.Color() }, uBurnCol: { value: new THREE.Color() },
+            uFlash: { value: 0 }, uShut: { value: 0 }, uFlashCol: { value: new THREE.Color(1, 1, 1) },
         };
         const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
             uniforms: u, vertexShader: plumeVS, fragmentShader: plumeFS,
@@ -598,7 +665,27 @@ function makePlume(small = false) {
     disc.rotation.x = Math.PI / 2;
     disc.position.y = -0.002;
     group.add(disc);
-    return { group, layers, disc };
+    // 热浪遮罩（仅渲染到第 1 层）
+    let shimmer = null;
+    if (!small) {
+        const u = layers[1];
+        shimmer = new THREE.Mesh(g, new THREE.ShaderMaterial({
+            uniforms: { ...u, uScale: { value: 1.9 } },
+            vertexShader: plumeVS,
+            fragmentShader: /* glsl */`
+                uniform float uPower, uAtm; varying float vS; varying vec3 vN; varying vec3 vV;
+                void main(){
+                    float f = abs(dot(normalize(vN), normalize(vV)));
+                    float m = uPower * uAtm * pow(1.0 - vS, 1.4) * f * 0.6;
+                    gl_FragColor = vec4(vec3(m), 1.0);
+                }`,
+            transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        }));
+        shimmer.layers.set(1);
+        shimmer.frustumCulled = false;
+        group.add(shimmer);
+    }
+    return { group, layers, disc, shimmer };
 }
 const plume = makePlume();
 gimbal.add(plume.group);
@@ -624,7 +711,7 @@ function updatePlume(P, power, time) {
         u.uSep.value = sep;
         u.uTime.value = time;
         u.uPower.value = power;
-        u.uBright.value = st.bright * 0.5 * (0.75 + 0.25 * op.thr) * (atmV < 0.05 ? 0.75 : 1);
+        u.uBright.value = st.bright * (0.5 + 0.35 * atmV) * (0.75 + 0.25 * op.thr) * (atmV < 0.05 ? 0.75 : 1);
         u.uShock.value = st.shock;
         u.uBurn.value = clamp(0.35 - x * 1.2, 0, 1) * (design.prop === 'hydrolox' || design.prop === 'ntr' ? 0.2 : 1);
         u.uCore.value.setRGB(...st.core);
@@ -633,6 +720,10 @@ function updatePlume(P, power, time) {
         u.uEdge.value.copy(_c1).lerp(_c2, clamp(-x * 1.6, 0, 0.6));
         u.uDia.value.setRGB(...st.dia);
         u.uBurnCol.value.setRGB(...st.burn);
+        u.uFlash.value = op.flash;
+        u.uShut.value = op.shut;
+        // 煤油发动机用 TEA-TEB 点火剂，点火瞬间是标志性的绿色闪光
+        if (design.prop === 'kerolox') u.uFlashCol.value.setRGB(0.25, 1.0, 0.35); else u.uFlashCol.value.setRGB(1.0, 0.92, 0.85);
     }
     plume.disc.scale.setScalar(re * 0.98);
     plume.disc.material.uniforms.uPower.value = power * (0.25 + 0.3 * st.bright);
@@ -650,10 +741,14 @@ function updatePlume(P, power, time) {
     }
 
     plumeLight.color.setRGB(...st.core);
-    plumeLight.intensity = power * st.bright * 18 * re * re;
+    plumeLight.intensity = power * st.bright * 7 * re * re;
     plumeLight.distance = 0;
     plume.group.getWorldPosition(plumeLight.position);
     plumeLight.position.y -= re * 2;
+    // 导流槽内的反光
+    pitLight.color.setRGB(...st.core).lerp(_c2.setRGB(1, 0.6, 0.35), 0.4);
+    pitLight.intensity = power * atm * st.bright * 22 * Math.max(re, 0.5) ** 2;
+    if (env.d) pitLight.position.copy(env.emit.mouth).add(env.stand.position).setY(env.gy + env.stand.position.y + 0.5);
 }
 
 /* =========================================================
@@ -719,7 +814,7 @@ function updateCamera(dt) {
         controls.update();
     }
     // 震动
-    const shake = op.power * (0.0025 + (lastP?.separated ? 0.01 : 0)) * curH * (reduceMotion ? 0 : 1);
+    const shake = (op.power * (0.0025 + (lastP?.separated ? 0.01 : 0)) + op.kick * 0.012) * curH * (reduceMotion ? 0 : 1);
     if (shake > 0) {
         camera.position.x += (Math.random() - 0.5) * shake;
         camera.position.y += (Math.random() - 0.5) * shake;
@@ -730,7 +825,11 @@ function updateCamera(dt) {
 function applyViewOffset() {
     const W = innerWidth, H = innerHeight;
     let left = 0, right = W, top = 0, bottom = H;
-    if (W > 760) {
+    const focus = document.body.classList.contains('focus');
+    if (focus) {
+        if (W > 760) bottom = document.querySelector('.deck').getBoundingClientRect().top;
+        top = document.querySelector('.brand').getBoundingClientRect().bottom * (W > 760 ? 0 : 1);
+    } else if (W > 760) {
         const d = document.querySelector('.design').getBoundingClientRect();
         const p = document.querySelector('.perf').getBoundingClientRect();
         const k = document.querySelector('.deck').getBoundingClientRect();
@@ -1021,6 +1120,8 @@ function cutoff(reason) {
     if (op.phase !== 'start' && op.phase !== 'run') return;
     op.phase = reason ? 'fault' : 'stop';
     op.t = 0;
+    op.shut = 1;
+    if (reason) sparkBurst(70, 1.4);
     updateIgnite();
     if (reason) { toast(reason, 'bad'); setStatus('fault', '紧急关机'); audio.blip(220, 0.4); }
     else setStatus('off', '关机');
@@ -1155,6 +1256,20 @@ function bindUi() {
         toast(op.sweep ? '摆动测试：±6° 正弦扫描' : '摆动测试结束');
     });
 
+    // 专注模式：收起面板，只看发动机
+    const setFocus = (on) => {
+        document.body.classList.toggle('focus', on);
+        $('focus').setAttribute('aria-pressed', String(on));
+        applyViewOffset();
+        setView(viewMode);
+    };
+    $('focus').addEventListener('click', () => setFocus(!document.body.classList.contains('focus')));
+    $('focusExit').addEventListener('click', () => setFocus(false));
+    addEventListener('keydown', (e) => {
+        if (e.code === 'KeyF' && !e.metaKey && !e.ctrlKey && !e.altKey) setFocus(!document.body.classList.contains('focus'));
+        if (e.code === 'Escape' && document.body.classList.contains('focus')) setFocus(false);
+    });
+
     // 移动端标签页
     document.querySelector('.tabs').addEventListener('click', (e) => {
         const b = e.target.closest('button'); if (!b) return;
@@ -1188,6 +1303,7 @@ function onResize() {
     renderer.setSize(innerWidth, innerHeight);
     composer.setSize(innerWidth, innerHeight);
     bloom.resolution.set(innerWidth / 2, innerHeight / 2);
+    maskRT.setSize(Math.ceil(innerWidth / 2), Math.ceil(innerHeight / 2));
     applyViewOffset();
     drawChart();
 }
@@ -1209,7 +1325,7 @@ function stepOps(dt, P) {
             if (t < 0.7) { setStatus('start', '预冷'); pump = t / 0.7 * 0.2; op.power = 0; }
             else if (t < 1.4) { setStatus('start', '涡轮泵起旋'); pump = 0.2 + (t - 0.7) / 0.7 * 0.6; op.power = 0; }
             else {
-                if (op.power === 0) audio.blip(330, 0.3);
+                if (op.power === 0) { audio.blip(330, 0.3); igniteBurst(); }
                 setStatus('start', '点火'); pump = 0.85;
                 op.power = Math.min(1, (t - 1.4) / 0.9);
                 op.power *= 0.75 + 0.25 * Math.random();
@@ -1237,6 +1353,15 @@ function stepOps(dt, P) {
         default:
             op.power = 0;
     }
+    // 低温结霜：预冷时迅速结霜，工作中保持，关机后缓慢融化
+    if (op.phase === 'start') op.frost = Math.min(1, op.frost + dt * 1.1);
+    else if (op.phase === 'run') op.frost = lerp(op.frost, 0.8, dt * 0.3);
+    else op.frost = Math.max(0, op.frost - dt * 0.04);
+    op.flash = Math.max(0, op.flash - dt * 3.2);
+    op.shut = op.phase === 'stop' || op.phase === 'fault' ? Math.min(op.shut, op.power + 0.15) : Math.max(0, op.shut - dt * 2);
+    op.kick = Math.max(0, op.kick - dt * 2.5);
+    // 水汽余量：关机后导流槽里的蒸汽还会翻滚一阵
+    op.steam = Math.max(op.power, op.steam - dt * 0.18);
     // 喷管温度：热时间常数约 3 秒
     const heatTarget = op.power * (0.55 + 0.45 * (1 - Math.pow(clamp(P.pa / 101325, 0, 1), 0.35))) * (P.Tc / 3500) * (0.7 + 0.3 * op.thr);
     op.heat = lerp(op.heat, heatTarget, Math.min(1, dt / (heatTarget > op.heat ? 3 : 6)));
@@ -1264,6 +1389,133 @@ function updateActuators() {
     }
 }
 
+/* ---------- 粒子：火花、冰屑、预冷白雾、导流槽烟云 ---------- */
+const _w = new THREE.Vector3(), _e = new THREE.Vector3();
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function sparkBurst(n, speed = 1) {
+    if (!geo) return;
+    plume.group.getWorldPosition(_e);
+    const re = geo.re;
+    const green = design.prop === 'kerolox';
+    for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * re * 0.9;
+        const out = rand(1.5, 7) * Math.max(re, 0.4) * speed;
+        sparks.spawn({
+            p: [_e.x + Math.cos(a) * r, _e.y - rand(0, re * 0.3), _e.z + Math.sin(a) * r],
+            v: [Math.cos(a) * out, -rand(2, 9) * Math.max(re, 0.4) * speed, Math.sin(a) * out],
+            life: rand(0.5, 1.3), s0: Math.max(re * 0.035, 0.03), s1: Math.max(re * 0.01, 0.01),
+            col: green && Math.random() < 0.5 ? [0.4, 1, 0.45] : [1, rand(0.45, 0.75), 0.2],
+            drag: 0.6, buoy: -9.8, a: 1, rotV: 0,
+        });
+    }
+}
+
+function igniteBurst() {
+    op.flash = 1;
+    op.kick = 1;
+    sparkBurst(isSmall ? 70 : 130, 1.2);
+    // 点火震动震落管路上的冰屑
+    if (!geo) return;
+    gimbal.updateMatrixWorld();
+    for (let i = 0; i < 46; i++) {
+        const v = geo.vents[i % geo.vents.length];
+        _w.copy(v).applyMatrix4(gimbal.matrixWorld);
+        smoke.spawn({
+            p: [_w.x + rand(-1, 1) * geo.rc * 0.4, _w.y - rand(0, geo.rc), _w.z + rand(-1, 1) * geo.rc * 0.4],
+            v: [rand(-0.6, 0.6), rand(-0.5, 0.8), rand(-0.6, 0.6)],
+            life: rand(0.8, 1.5), s0: geo.rc * rand(0.05, 0.1), s1: geo.rc * 0.05,
+            col: [1, 1, 1], drag: 0.3, buoy: -9.8, a: 0.95, rotV: 3,
+        });
+    }
+}
+
+let acc = { vapor: 0, mouth: 0, outlet: 0, spark: 0 };
+function emitParticles(dt, P, atm) {
+    if (!geo || !env.d) return;
+    const rc = geo.rc;
+    // 预冷/低温白雾：冷气下沉
+    const vaporRate = op.phase === 'start' ? 70 : (op.frost > 0.2 ? 10 * op.frost : 0);
+    acc.vapor += vaporRate * dt * (atm > 0.05 ? 1 : 0);
+    if (acc.vapor >= 1) gimbal.updateMatrixWorld();
+    while (acc.vapor >= 1) {
+        acc.vapor -= 1;
+        const v = geo.vents[Math.floor(Math.random() * geo.vents.length)];
+        _w.copy(v).applyMatrix4(gimbal.matrixWorld);
+        smoke.spawn({
+            p: [_w.x + rand(-1, 1) * rc * 0.15, _w.y, _w.z + rand(-1, 1) * rc * 0.15],
+            v: [rand(-0.25, 0.25) * rc * 2, rand(-0.8, -0.2) * rc * 2, rand(-0.25, 0.25) * rc * 2],
+            life: rand(1.4, 2.6), s0: rc * 0.25, s1: rc * rand(1.0, 1.8),
+            col: [0.95, 0.97, 1], drag: 1.4, buoy: -0.25 * rc, a: 0.32,
+        });
+    }
+
+    // 导流槽烟云（只在地面附近）
+    const ground = env.stand.visible ? Math.max(0, 1 - op.alt / 1.2) : 0;
+    const intensity = op.steam * ground;
+    if (intensity > 0.01) {
+        const sc = Math.max(env.emit.width, 2);
+        const off = env.stand.position;
+        acc.outlet += (isSmall ? 18 : 30) * intensity * dt;
+        while (acc.outlet >= 1) {
+            acc.outlet -= 1;
+            const o = env.emit.outlet;
+            const sp = rand(6, 14) * sc * 0.35 * (0.4 + 0.6 * op.power);
+            smoke.spawn({
+                p: [o.x + off.x, o.y + off.y + rand(0, env.emit.depth * 0.5), o.z + rand(-0.5, 0.5) * sc],
+                v: [sp * env.emit.dir.x, rand(0.5, 2.5) * sc * 0.3, rand(-1, 1) * sp * 0.35],
+                life: rand(4, 7), s0: sc * 0.7, s1: sc * rand(3.5, 5.5),
+                col: [0.8, 0.8, 0.82], drag: 0.45, buoy: 0.6 * sc * 0.3, a: 0.32 * Math.min(1, intensity * 1.5),
+                heat: op.power * 0.25,
+            });
+        }
+        acc.mouth += (isSmall ? 5 : 8) * intensity * dt;
+        while (acc.mouth >= 1) {
+            acc.mouth -= 1;
+            const m = env.emit.mouth;
+            smoke.spawn({
+                p: [m.x + off.x + sc * rand(1, 2.5) * env.emit.dir.x, m.y + off.y, m.z + rand(-0.3, 0.3) * sc],
+                v: [rand(2, 5) * sc * 0.4 * env.emit.dir.x, rand(1, 3) * sc * 0.3, rand(-1, 1) * sc * 0.3],
+                life: rand(3, 5), s0: sc * 0.5, s1: sc * rand(2, 3),
+                col: [0.82, 0.82, 0.84], drag: 0.6, buoy: 0.25 * sc * 0.3, a: 0.2 * Math.min(1, intensity * 1.5),
+                heat: op.power * 0.4,
+            });
+        }
+    }
+    // 点火过渡中的零星火花
+    if (op.phase === 'start' && op.power > 0) {
+        acc.spark += 60 * dt;
+        if (acc.spark >= 4) { sparkBurst(Math.floor(acc.spark), 0.8); acc.spark = 0; }
+    }
+
+    // 烟云受尾焰照亮
+    const st = PLUME_STYLE[design.prop];
+    const u = smoke.uniforms;
+    u.uLightPos.value.copy(env.emit.mouth).add(env.stand.position);
+    u.uLightI.value = op.power * (0.6 + st.bright) * 0.55;
+    u.uFalloff.value = 1 / Math.pow(Math.max(env.emit.width, 2) * 2.5, 2);
+    u.uLightCol.value.setRGB(...st.core).lerp(_c2.setRGB(1, 0.62, 0.35), 0.5);
+    u.uAmb.value.setRGB(lerp(0.06, 0.16, atm), lerp(0.07, 0.18, atm), lerp(0.09, 0.22, atm));
+}
+
+/* ---------- 热浪遮罩 ---------- */
+function renderShimmer(t, atm) {
+    const amt = op.power * atm;
+    shimmerPass.uniforms.uTime.value = t;
+    shimmerPass.uniforms.uAmt.value = amt * 0.0032;
+    shimmerPass.enabled = amt > 0.01;
+    if (!shimmerPass.enabled) return;
+    const prevBg = scene.background;
+    camera.layers.set(1);
+    renderer.setRenderTarget(maskRT);
+    renderer.setClearColor(0x000000, 1);
+    renderer.clear();
+    renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    camera.layers.set(0);
+    scene.background = prevBg;
+}
+
 function frame() {
     const dt = Math.min(clock.getDelta(), 0.05);
     const t = clock.elapsedTime;
@@ -1279,18 +1531,31 @@ function frame() {
     // 发热与指示灯
     if (geo) {
         const h = op.heat;
-        geo.regenMesh.material.emissiveIntensity = h * h * 1.6;
-        if (geo.extMesh) geo.extMesh.material.emissiveIntensity = h * h * 2.4;
+        geo.regenMesh.material.userData.uHeat.value = h * 0.62;
+        if (geo.extMesh) geo.extMesh.material.userData.uHeat.value = h * 1.08;
         geo.innerMesh.material.emissiveIntensity = op.power * 0.8 + h * 0.7;
     }
-    mats.accent.emissiveIntensity = 0.4 + pump * 3;
+    mats.accent.emissiveIntensity = 0.12 + pump * 0.9;
+    mats.gold.color.lerpColors(GOLD, FROST, op.frost * 0.85);
+    mats.gold.roughness = lerp(0.32, 0.9, op.frost);
+    mats.pipe.color.lerpColors(PIPE, FROST, op.frost * 0.6);
+    mats.pipe.roughness = lerp(0.22, 0.8, op.frost);
 
     // 流场动画
     flowT += dt * (0.4 + op.power * 2.6 * op.thr);
     flowMat.uniforms.uFlowT.value = flowT;
     flowMat.uniforms.uRun.value = lerp(flowMat.uniforms.uRun.value, op.power, Math.min(1, dt * 3));
 
+    emitParticles(dt, P, atm);
+    smoke.update(dt);
+    sparks.update(dt);
+    env.update(op.alt, dt, camera);
+
     // 环境
+    const fogK = atm;
+    scene.fog.color.setRGB(lerp(0.008, 0.07, fogK), lerp(0.01, 0.085, fogK), lerp(0.02, 0.13, fogK));
+    scene.fog.near = curH * 7;
+    scene.fog.far = curH * (32 + (1 - fogK) * 600);
     sky.material.uniforms.uAtm.value = atm;
     stars.material.opacity = clamp(1 - atm * 2.2, 0, 1) * 0.9;
     sky.position.copy(camera.position);
@@ -1299,6 +1564,7 @@ function frame() {
 
     updateCamera(dt);
     updateLabels();
+    renderShimmer(t, atm);
     composer.render();
     audio.update(op.power * (0.6 + 0.4 * op.thr), atm, pump);
 
@@ -1325,8 +1591,13 @@ function init() {
         curH = geo.height;
         applyViewOffset();
         const g2 = viewGoal('overview', curH);
-        camera.position.copy(g2.pos);
+        // 入场：从远处高空环绕推近
+        const start = g2.pos.clone().sub(g2.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.9).multiplyScalar(3.2).add(g2.target);
+        start.y += curH * 2.5;
+        camera.position.copy(start);
         controls.target.copy(g2.target);
+        camTrans = { fromPos: start, fromT: g2.target.clone(), to: g2, t: 0, dur: reduceMotion ? 0.01 : 3.2 };
+        controls.enabled = false;
     });
     setTimeout(() => {
         $('loader').classList.add('done');

@@ -186,6 +186,9 @@
                 <button class="icon-btn" id="sound" title="声音" aria-label="开启声音" aria-pressed="false">
                     <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M17 9l5 6M22 9l-5 6"/></svg>
                 </button>
+                <button class="icon-btn" id="focus" title="专注模式 (F)" aria-label="专注模式" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+                </button>
                 <button class="icon-btn" id="sweep" title="摆动测试" aria-label="摆动测试" aria-pressed="false">
                     <svg viewBox="0 0 24 24"><path d="M3 12c2.5-6 5-6 7.5 0s5 6 7.5 0 2.5-3 3-3"/></svg>
                 </button>
@@ -193,6 +196,7 @@
         </section>
     </div>
 
+    <button class="focus-exit" id="focusExit" aria-label="退出专注模式">退出专注 <kbd>F</kbd></button>
     <div class="toast" id="toast" role="status"></div>
     <p class="hint" id="hint">拖动旋转 · 滚轮缩放 · <kbd>Space</kbd> 点火 / 关机</p>
 

@@ -447,6 +447,32 @@ input[type="range"]:focus-visible { outline: 2px solid var(--cyan); outline-offs
 #sound[aria-pressed="true"] .wave { display: inline; }
 #sound[aria-pressed="true"] .mute { display: none; }
 
+/* ---------- 专注模式 ---------- */
+.design, .perf, .tabs { transition: opacity .45s ease, transform .45s ease; }
+body.focus .design { opacity: 0; transform: translateX(-24px); pointer-events: none; }
+body.focus .perf { opacity: 0; transform: translateX(24px); pointer-events: none; }
+body.focus .hint { opacity: 0; }
+.focus-exit {
+    position: fixed;
+    top: calc(var(--gap) + 76px);
+    left: 50%;
+    transform: translate(-50%, -8px);
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: rgba(9, 14, 24, .6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-size: .74rem;
+    letter-spacing: .1em;
+    color: var(--ink-soft);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s, transform .4s;
+}
+body.focus .focus-exit { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.focus-exit:hover { color: var(--ink); }
+
 /* ---------- 剖面标注 ---------- */
 .labels { position: fixed; inset: 0; pointer-events: none; }
 .labels span {
@@ -632,6 +658,8 @@ input[type="range"]:focus-visible { outline: 2px solid var(--cyan); outline-offs
 
     .hint { display: none; }
     .hero-stats b { font-size: 1.5rem; }
+    body.focus .sheet, body.focus .tabs { opacity: 0; transform: translateY(24px); pointer-events: none; }
+    .focus-exit { top: auto; bottom: calc(var(--gap) + 8px); }
     .toast { top: 12%; font-size: .78rem; padding: 9px 16px; }
 }
 
