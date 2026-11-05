@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>推进器设计实验室</title>
+    <meta name="description" content="可交互的 3D 星舰推进器设计模拟：调整推进剂、动力循环、室压与喷管，实时查看推力、比冲与尾焰。">
+    <meta name="theme-color" content="#04060b">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./vendor/three/build/three.module.min.js",
+            "three/addons/": "./vendor/three/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body data-tab="design">
+    <canvas id="scene" aria-label="推进器三维模型"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="labels" id="labels" aria-hidden="true"></div>
+
+    <div class="loader" id="loader">
+        <div class="loader-inner">
+            <div class="loader-ring"><span></span></div>
+            <p class="loader-title">ENGINE LAB</p>
+            <p class="loader-text" id="loaderText">正在装配推进器</p>
+        </div>
+    </div>
+
+    <div class="hud" id="hud">
+        <header class="brand panel">
+            <a class="back" href="../index.html" aria-label="返回作品集">←</a>
+            <div>
+                <p class="eyebrow">PROPULSION DESIGN SIM</p>
+                <h1>推进器设计实验室</h1>
+            </div>
+            <div class="status" id="status" data-state="off"><i></i><span id="statusText">冷态</span></div>
+        </header>
+
+        <nav class="tabs" role="tablist" aria-label="面板">
+            <button role="tab" data-tab="design" aria-selected="true">设计</button>
+            <button role="tab" data-tab="perf" aria-selected="false">性能</button>
+            <button role="tab" data-tab="ops" aria-selected="false">试车</button>
+        </nav>
+
+        <!-- 设计参数 -->
+        <section class="design panel sheet" data-sheet="design" aria-label="设计参数">
+            <div class="panel-head"><span>设计参数 · DESIGN</span><span class="tag" id="designTag">CH₄ · FFSC</span></div>
+
+            <div class="field">
+                <span class="label">预设方案</span>
+                <div class="chips" id="presets"></div>
+            </div>
+
+            <div class="field">
+                <span class="label">推进剂</span>
+                <div class="seg" id="prop" role="radiogroup" aria-label="推进剂">
+                    <button role="radio" data-v="methalox">甲烷</button>
+                    <button role="radio" data-v="hydrolox">液氢</button>
+                    <button role="radio" data-v="kerolox">煤油</button>
+                    <button role="radio" data-v="ntr">核热</button>
+                </div>
+            </div>
+
+            <div class="field">
+                <span class="label">动力循环</span>
+                <div class="seg" id="cycle" role="radiogroup" aria-label="动力循环">
+                    <button role="radio" data-v="gg" title="燃气发生器：结构简单，部分燃气排掉，比冲略低">GG</button>
+                    <button role="radio" data-v="staged" title="分级燃烧：全部燃气进主燃烧室，高室压">SC</button>
+                    <button role="radio" data-v="ffsc" title="全流量分级燃烧：最高室压与效率">FFSC</button>
+                    <button role="radio" data-v="expander" title="膨胀循环：冷却剂吸热驱动涡轮，室压受限">EXP</button>
+                </div>
+                <p class="hint-line" id="cycleHint">全流量分级燃烧 · 室压上限 35 MPa</p>
+            </div>
+
+            <div class="sliders">
+                <label class="slider">
+                    <span class="label">燃烧室压力<b><output id="pcV">28</output> MPa</b></span>
+                    <input type="range" id="pc" min="2" max="40" step="0.5" value="28">
+                </label>
+                <label class="slider" id="ofRow">
+                    <span class="label">混合比 O/F<b><output id="ofV">3.60</output></b></span>
+                    <input type="range" id="of" min="2.6" max="4.2" step="0.05" value="3.6">
+                </label>
+                <label class="slider">
+                    <span class="label">喉部直径<b><output id="dtV">0.24</output> m</b></span>
+                    <input type="range" id="dt" min="0.08" max="0.5" step="0.01" value="0.24">
+                </label>
+                <label class="slider">
+                    <span class="label">面积膨胀比 ε<b><output id="epsV">34</output></b></span>
+                    <input type="range" id="eps" min="4" max="200" step="1" value="34">
+                </label>
+                <label class="slider">
+                    <span class="label">钟形喷管长度<b><output id="bellV">80</output> %</b></span>
+                    <input type="range" id="bell" min="60" max="100" step="1" value="80">
+                </label>
+            </div>
+
+            <dl class="geo">
+                <div><dt>出口直径</dt><dd id="gExit">1.40 m</dd></div>
+                <div><dt>发动机总长</dt><dd id="gLen">3.1 m</dd></div>
+                <div><dt>干重</dt><dd id="gMass">1585 kg</dd></div>
+            </dl>
+        </section>
+
+        <!-- 性能 -->
+        <section class="perf panel sheet" data-sheet="perf" aria-label="性能">
+            <div class="panel-head"><span>性能 · PERFORMANCE</span><span class="flow" id="flow" data-state="ideal">理想膨胀</span></div>
+
+            <div class="hero-stats">
+                <div><span class="label">当前推力</span><p><b id="pF">0</b><small>kN</small></p></div>
+                <div><span class="label">当前比冲</span><p><b id="pIsp">0</b><small>s</small></p></div>
+            </div>
+
+            <dl class="stats">
+                <div><dt>海平面推力</dt><dd><b id="pFsl">—</b><small>kN</small></dd></div>
+                <div><dt>真空推力</dt><dd><b id="pFvac">—</b><small>kN</small></dd></div>
+                <div><dt>海平面比冲</dt><dd><b id="pIspSl">—</b><small>s</small></dd></div>
+                <div><dt>真空比冲</dt><dd><b id="pIspVac">—</b><small>s</small></dd></div>
+                <div><dt>质量流量</dt><dd><b id="pMdot">—</b><small>kg/s</small></dd></div>
+                <div><dt>排气速度</dt><dd><b id="pVe">—</b><small>m/s</small></dd></div>
+                <div><dt>出口压力</dt><dd><b id="pPe">—</b><small>kPa</small></dd></div>
+                <div><dt>环境压力</dt><dd><b id="pPa">—</b><small>kPa</small></dd></div>
+                <div><dt>出口马赫数</dt><dd><b id="pMe">—</b><small></small></dd></div>
+                <div><dt>燃烧温度</dt><dd><b id="pTc">—</b><small>K</small></dd></div>
+                <div><dt>推重比 · 海平面</dt><dd><b id="pTw">—</b><small></small></dd></div>
+                <div><dt>理想膨胀高度</dt><dd><b id="pHi">—</b><small>km</small></dd></div>
+            </dl>
+
+            <div class="chart">
+                <div class="chart-head"><span>推力 — 高度</span><span class="legend"><i class="l-f"></i>推力 <i class="l-s"></i>流动分离区</span></div>
+                <canvas id="chart" width="288" height="120"></canvas>
+            </div>
+
+            <div class="meters">
+                <div class="meter">
+                    <div class="meter-label"><span>涡轮泵负荷</span><span id="mLoadV">80%</span></div>
+                    <div class="meter-track"><i id="mLoad"></i></div>
+                </div>
+                <div class="meter">
+                    <div class="meter-label"><span>冷却裕度</span><span id="mCoolV">14%</span></div>
+                    <div class="meter-track"><i id="mCool" class="cool"></i></div>
+                </div>
+            </div>
+
+            <ul class="warnings" id="warnings"></ul>
+        </section>
+
+        <!-- 试车控制 -->
+        <section class="deck panel sheet" data-sheet="ops" aria-label="试车控制">
+            <button class="ignite" id="ignite" aria-pressed="false">
+                <span class="ignite-ring"></span>
+                <span class="ignite-label"><b id="igniteText">点火</b><small id="igniteSub">IGNITE</small></span>
+            </button>
+
+            <label class="deck-group">
+                <span class="label">节流<b><output id="thrV">100</output> %</b></span>
+                <input type="range" id="throttle" min="40" max="100" step="1" value="100">
+            </label>
+
+            <label class="deck-group">
+                <span class="label">工作高度<b><output id="altV">海平面</output></b></span>
+                <input type="range" id="alt" min="0" max="100" step="0.5" value="0">
+            </label>
+
+            <label class="deck-group">
+                <span class="label">摆角<b><output id="gimV">0.0</output>°</b></span>
+                <input type="range" id="gimbal" min="-8" max="8" step="0.1" value="0">
+            </label>
+
+            <div class="deck-group">
+                <span class="label">视角</span>
+                <div class="seg" id="cam" role="radiogroup" aria-label="视角">
+                    <button role="radio" aria-checked="true" data-v="overview">全景<kbd>1</kbd></button>
+                    <button role="radio" aria-checked="false" data-v="nozzle">喷口<kbd>2</kbd></button>
+                    <button role="radio" aria-checked="false" data-v="section">剖面<kbd>3</kbd></button>
+                </div>
+            </div>
+
+            <div class="tools">
+                <button class="icon-btn" id="sound" title="声音" aria-label="开启声音" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M17 9l5 6M22 9l-5 6"/></svg>
+                </button>
+                <button class="icon-btn" id="sweep" title="摆动测试" aria-label="摆动测试" aria-pressed="false">
+                    <svg viewBox="0 0 24 24"><path d="M3 12c2.5-6 5-6 7.5 0s5 6 7.5 0 2.5-3 3-3"/></svg>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <div class="toast" id="toast" role="status"></div>
+    <p class="hint" id="hint">拖动旋转 · 滚轮缩放 · <kbd>Space</kbd> 点火 / 关机</p>
+
+    <noscript><p class="noscript">此模拟需要启用 JavaScript 与 WebGL。</p></noscript>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
